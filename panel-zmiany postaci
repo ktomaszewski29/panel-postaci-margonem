@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Margonem – układ listy postaci
+// @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
 // @version      1.4
 // @description  Własna kolejność postaci (drag & drop), zapamiętane sortowanie i opcjonalny podział wg światów w oknie "Wybierz Postać"
