@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#eef1ec">
+  <meta name="description" content="Instrukcja instalacji i obsługi userscriptu Margonem – układ listy postaci.">
+  <title>Instrukcja — Układ listy postaci</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800&family=Pixelify+Sans:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #eef1ec; --surface: #fff; --fg: #1b2420; --muted: #56635c;
+      --line: #d5ddd7; --accent: #3f8a5c; --accent-ink: #fff; --code-bg: #e4eae5;
+      --warn-bg: #fbf3e2; --warn-line: #e2c27a; --warn-fg: #6b4f12;
+      --display: "Pixelify Sans", "Trebuchet MS", system-ui, sans-serif;
+      --body: "Nunito Sans", "Segoe UI", system-ui, sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+      box-sizing: border-box; scroll-padding-top: 20px;
+    }
+    *, *::before, *::after { box-sizing: inherit; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark; --bg:#121512; --surface:#1a1f1c; --fg:#e4ebe6; --muted:#9aa8a0;
+        --line:#2c3530; --accent:#5fae7c; --accent-ink:#0d1410; --code-bg:#232a26;
+        --warn-bg:#2a2416; --warn-line:#7a6330; --warn-fg:#e8d39c;
+      }
+    }
+    :root[data-theme="dark"] { color-scheme:dark; --bg:#121512; --surface:#1a1f1c; --fg:#e4ebe6; --muted:#9aa8a0; --line:#2c3530; --accent:#5fae7c; --accent-ink:#0d1410; --code-bg:#232a26; --warn-bg:#2a2416; --warn-line:#7a6330; --warn-fg:#e8d39c; }
+    body { margin:0; padding:0; background:var(--bg); color:var(--fg); font:16px/1.65 var(--body); }
+    a { color:var(--accent); text-underline-offset:3px; }
+    a:focus-visible, button:focus-visible { outline:3px solid var(--accent); outline-offset:2px; border-radius:4px; }
+    .wrap { width:min(100% - 32px, 44rem); margin:0 auto; padding:40px 0 64px; }
+    header.top { display:flex; align-items:center; gap:16px; margin-bottom:18px; }
+    .mark { width:68px; height:68px; display:grid; flex:0 0 auto; place-items:center; border:1px solid var(--line); border-radius:10px; background:var(--surface); color:var(--accent); font:700 34px/1 var(--display); image-rendering:pixelated; }
+    .title-wrap { min-width:0; }
+    .kicker { color:var(--accent); font-size:.76rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+    h1, h2 { font-family:var(--display); font-weight:600; text-wrap:balance; line-height:1.15; }
+    h1 { margin:3px 0 0; font-size:clamp(2rem, 6vw, 2.75rem); }
+    h2 { margin:0 0 .75rem; font-size:1.45rem; }
+    h3 { margin:1.25rem 0 .35rem; font-size:1.05rem; line-height:1.35; }
+    p { margin:0 0 .8rem; }
+    .lead { margin:0; color:var(--muted); font-size:1.12rem; }
+    section { padding-block:28px; border-top:1px solid var(--line); }
+    section:first-of-type { border-top:0; }
+    .version { display:inline-block; margin-top:7px; padding:1px 8px; border:1px solid var(--line); border-radius:999px; color:var(--muted); font:500 .76rem var(--mono); }
+    .download { display:flex; gap:8px; align-items:stretch; flex-wrap:wrap; margin:.8rem 0 .3rem; }
+    .download a { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:43px; padding:9px 16px; border:1px solid var(--accent); border-radius:6px; background:var(--accent); color:var(--accent-ink); font-weight:800; text-decoration:none; }
+    .download a:hover { filter:brightness(1.07); }
+    .download .secondary { background:transparent; color:var(--accent); }
+    .status { min-height:1.35em; margin:0; color:var(--muted); font-size:.9rem; }
+    .uwaga { margin:16px 0 4px; padding:12px 16px; border:1px solid var(--warn-line); border-radius:8px; background:var(--warn-bg); color:var(--warn-fg); }
+    .uwaga p:last-child { margin:0; }
+    ol.kroki { display:grid; gap:22px; margin:0; padding:0; list-style:none; counter-reset:k; }
+    ol.kroki>li { display:grid; grid-template-columns:2.4rem 1fr; gap:14px; min-width:0; counter-increment:k; }
+    ol.kroki>li::before { content:counter(k); display:grid; width:2.4rem; height:2.4rem; place-items:center; border-radius:6px; background:var(--accent); color:var(--accent-ink); font:600 1.3rem var(--display); }
+    ol.kroki>li>div { min-width:0; }
+    ol.kroki h3 { margin-top:.3rem; }
+    ul.punkty { margin:.3rem 0 .6rem; padding-left:1.2rem; }
+    ul.punkty li { margin:.2rem 0; }
+    code, kbd { padding:.1em .4em; border-radius:4px; background:var(--code-bg); font: .9em var(--mono); }
+    kbd { border:1px solid var(--line); border-bottom-width:2px; }
+    .tabela { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:.95rem; }
+    th, td { padding:10px 12px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { color:var(--muted); font-size:.82rem; font-weight:800; }
+    tr:last-child td { border-bottom:0; }
+    details { padding:12px 0; border-top:1px solid var(--line); }
+    details:last-child { border-bottom:1px solid var(--line); }
+    summary { cursor:pointer; font-weight:800; }
+    details p { margin:.55rem 0 0; color:var(--muted); }
+    footer { padding-top:20px; border-top:1px solid var(--line); color:var(--muted); font-size:.88rem; }
+    @media (max-width:520px) { .wrap { padding-top:26px; } header.top { align-items:flex-start; gap:12px; } .mark { width:52px; height:52px; font-size:26px; } ol.kroki>li { grid-template-columns:2.1rem 1fr; gap:11px; } ol.kroki>li::before { width:2.1rem; height:2.1rem; } th,td { padding:9px 8px; } }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="mark" aria-hidden="true">M</div>
+      <div class="title-wrap"><div class="kicker">Dodatek do Margonem</div><h1>Układ listy postaci</h1><span class="version">wersja 1.4</span></div>
+    </header>
+    <p class="lead">Userscript do porządkowania ekranu wyboru postaci. Ustaw własną kolejność, ukryj nieużywane postacie, podziel listę według światów i wybierz ulubioną postać.</p>
+    <div class="download">
+      <a href="./margonem-ulubiona-postac.user.js" download>↓ Pobierz userscript</a>
+      <a class="secondary" href="#instalacja">Instrukcja instalacji</a>
+    </div>
+    <p class="status">Wymaga Tampermonkey i strony margonem.pl.</p>
+
+    <section id="funkcje">
+      <h2>Co robi dodatek</h2>
+      <p>W oknie „Wybierz Postać” dodaje opcje porządkowania, a na kafelkach postaci — gwiazdkę ulubionej oraz przycisk ukrywania.</p>
+      <ul class="punkty">
+        <li>Zapamiętuje sortowanie wybrane z listy „Sortuj wg”.</li>
+        <li>Pozwala przeciągać kafelki i zachować własną kolejność.</li>
+        <li>Grupuje postacie według światów i ukrywa puste grupy.</li>
+        <li>Pozwala ukrywać postacie. Możesz je później podejrzeć lub przywrócić.</li>
+        <li>Po pojawieniu się listy po zalogowaniu wybiera ulubioną postać przez zwykłą obsługę strony Margonem.</li>
+        <li>Automatycznie zamyka komunikat o nieustawionym adresie e-mail.</li>
+      </ul>
+    </section>
+
+    <section id="instalacja">
+      <h2>Instalacja krok po kroku</h2>
+      <p>Potrzebujesz przeglądarki z rozszerzeniem Tampermonkey. Instalacja zajmuje kilka minut.</p>
+      <ol class="kroki">
+        <li><div><h3>Zainstaluj Tampermonkey</h3><p>Dodaj rozszerzenie Tampermonkey do swojej przeglądarki i upewnij się, że jest włączone. Jeśli ikony nie widać obok paska adresu, otwórz menu rozszerzeń i przypnij ją.</p><p><a href="https://www.tampermonkey.net/" target="_blank" rel="noreferrer">Otwórz oficjalną stronę Tampermonkey ↗</a></p></div></li>
+        <li><div><h3>Pobierz skrypt</h3><p>Kliknij <a href="./margonem-ulubiona-postac.user.js" download>„Pobierz userscript”</a>. Otwórz pobrany plik z rozszerzeniem <code>.user.js</code>.</p></div></li>
+        <li><div><h3>Zainstaluj dodatek</h3><p>Tampermonkey pokaże stronę instalacji skryptu. Wybierz <strong>Zainstaluj</strong>. Jeśli masz już starszą wersję, zaktualizuj ją albo wyłącz starą kopię.</p></div></li>
+        <li><div><h3>Odśwież Margonem</h3><p>Wróć na <code>margonem.pl</code> i odśwież stronę. Otwórz okno „Wybierz Postać”; opcje dodatku znajdziesz pod kontrolką sortowania.</p></div></li>
+      </ol>
+      <div class="uwaga"><p><strong>Chrome, Edge i Opera:</strong> jeśli Tampermonkey nie uruchamia skryptów użytkownika, otwórz ustawienia rozszerzenia i włącz opcję „Zezwalaj na skrypty użytkownika” (Allow User Scripts). W Firefoksie ten przełącznik zwykle nie jest potrzebny.</p></div>
+    </section>
+
+    <section id="obsluga">
+      <h2>Ustawienia i przyciski</h2>
+      <div class="tabela"><table><thead><tr><th>Opcja</th><th>Jak działa</th></tr></thead><tbody>
+        <tr><td><strong>Własna kolejność</strong></td><td>Przeciągnij kafelek na nowe miejsce. Skrypt zapamięta kolejność i zaznaczy tę opcję.</td></tr>
+        <tr><td><strong>Rozdziel wg światów</strong></td><td>Włącza osobne grupy postaci według ich świata.</td></tr>
+        <tr><td><strong>Pokaż ukryte</strong></td><td>Pokazuje ukryte kafelki w trybie podglądu. Kliknij ↺ przy postaci, aby ją przywrócić.</td></tr>
+        <tr><td><strong>✕ / ↺ na kafelku</strong></td><td>✕ ukrywa postać, a ↺ przywraca ją po włączeniu podglądu ukrytych.</td></tr>
+        <tr><td><strong>☆ / ★ na kafelku</strong></td><td>Ustawia albo odznacza ulubioną postać.</td></tr>
+        <tr><td><strong>Resetuj kolejność</strong></td><td>Usuwa własną kolejność i wyłącza jej używanie. Nie kasuje ulubionej ani ukrytych postaci.</td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section id="ulubiona">
+      <h2>Ulubiona postać i konta zastępców</h2>
+      <p>Kliknij ☆ na kafelku, aby ustawić go jako ulubiony. Gdy skrypt wykryje listę postaci po zalogowaniu, kliknie kafelek z ★, korzystając z natywnego wyboru Margonem.</p>
+      <p>Ulubiona postać jest przypisana do zestawu ID postaci, więc konta używane przez system zastępcy mają osobne wybory. Jeśli zmienisz skład postaci na koncie, identyfikator zestawu również się zmieni.</p>
+      <div class="uwaga"><p><strong>Automatyczny wybór:</strong> zadziała, kiedy kafelek ulubionej postaci pojawi się na stronie. Nie omija logowania ani mechanizmu wyboru postaci Margonem.</p></div>
+    </section>
+
+    <section id="zapis">
+      <h2>Co jest zapisywane</h2>
+      <p>Ustawienia trafiają do pamięci Tampermonkey w przeglądarce. Skrypt nie zawiera kodu wysyłającego te ustawienia na zewnętrzny serwer.</p>
+      <ul class="punkty">
+        <li><strong>Osobno dla zestawu postaci:</strong> ulubiona postać.</li>
+        <li><strong>Wspólnie w instalacji skryptu:</strong> ukryte postacie, kolejność, sortowanie i włączenie podziału na światy.</li>
+        <li><strong>Tylko tymczasowo:</strong> tryb „Pokaż ukryte”.</li>
+      </ul>
+    </section>
+
+    <section id="faq">
+      <h2>Gdy coś nie działa</h2>
+      <details><summary>Nie widzę opcji dodatku</summary><p>Odśwież stronę Margonem. Upewnij się, że skrypt jest włączony w Tampermonkey i działa tylko jedna jego kopia.</p></details>
+      <details><summary>Ulubiona postać nie wybiera się automatycznie</summary><p>Sprawdź, czy w bieżącym zestawie konta jest ta postać. Wybór następuje dopiero po pojawieniu się jej kafelka w stronie.</p></details>
+      <details><summary>Po włączeniu grupowania światów widzę nagłówek, ale nie kafelek</summary><p>Zaktualizuj userscript do wersji 1.4 i odśwież stronę. Ta wersja poprawia przenoszenie kafelków do grup świata.</p></details>
+      <details><summary>Co się stanie z ukrytymi postaciami?</summary><p>Ukrywanie zmienia wyłącznie widoczność kafelka w przeglądarce. Nie usuwa postaci z konta.</p></details>
+      <details><summary>Jak zaktualizować skrypt?</summary><p>Pobierz najnowszy plik i zainstaluj go w Tampermonkey, zastępując poprzednią wersję. Potem odśwież Margonem.</p></details>
+    </section>
+
+    <footer>Instrukcja do userscriptu „Margonem – układ listy postaci” · wersja 1.4</footer>
+  </div>
+</body>
+</html>
