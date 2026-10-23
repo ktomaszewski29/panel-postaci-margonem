@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.6
+// @version      1.7
 // @description  Panel zmiany postaci: własna kolejność, sortowanie, grupowanie światów, ukrywanie i wybór ulubionej postaci
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -92,12 +92,12 @@
         const lbl = 'display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;margin:0;';
         const chk = 'margin:0;cursor:pointer;';
         const btnCss =
-            'cursor:pointer;white-space:nowrap;margin:0;padding:4px 12px;font-size:13px;' +
+            'cursor:pointer;white-space:nowrap;margin:0;min-height:32px;padding:5px 12px;font-size:13px;' +
             'border:1px solid rgba(0,0,0,.45);border-radius:4px;background:rgba(255,255,255,.55);color:#000;';
         panel.innerHTML =
             '<label style="' + lbl + '"><input type="checkbox" class="mdr-custom" style="' + chk + '"><span>Własna kolejność</span></label>' +
             '<label style="' + lbl + '"><input type="checkbox" class="mdr-group" style="' + chk + '"><span>Rozdziel wg światów</span></label>' +
-            '<span style="display:inline-flex;gap:8px;flex-wrap:wrap">' +
+            '<span class="mdr-actions" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;width:100%;box-sizing:border-box">' +
             '<button type="button" class="mdr-show" style="' + btnCss + '"></button>' +
             '<button type="button" class="mdr-restore-all" style="' + btnCss + '">Odkryj wszystkie</button>' +
             '<button type="button" class="mdr-reset" style="' + btnCss + '">Resetuj kolejność</button>' +
