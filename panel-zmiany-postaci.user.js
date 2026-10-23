@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.4
-// @description  Własna kolejność postaci (drag & drop), zapamiętane sortowanie i opcjonalny podział wg światów w oknie "Wybierz Postać"
+// @version      1.5
+// @description  Panel zmiany postaci: własna kolejność, sortowanie, grupowanie światów, ukrywanie i wybór ulubionej postaci
 // @match        https://www.margonem.pl/*
 // @match        https://margonem.pl/*
 // @grant        GM_getValue
@@ -95,13 +95,20 @@
         panel.innerHTML =
             '<label style="' + lbl + '"><input type="checkbox" class="mdr-custom" style="' + chk + '"><span>Własna kolejność</span></label>' +
             '<label style="' + lbl + '"><input type="checkbox" class="mdr-group" style="' + chk + '"><span>Rozdziel wg światów</span></label>' +
-            '<span style="display:inline-flex;gap:8px;flex-wrap:nowrap">' +
+            '<span style="display:inline-flex;gap:8px;flex-wrap:wrap">' +
             '<button type="button" class="mdr-show" style="' + btnCss + '"></button>' +
+            '<button type="button" class="mdr-restore-all" style="' + btnCss + '">Odkryj wszystkie</button>' +
             '<button type="button" class="mdr-reset" style="' + btnCss + '">Resetuj kolejność</button>' +
             '</span>';
         holder.insertAdjacentElement('afterend', panel);
         panel.querySelector('.mdr-show').addEventListener('click', () => {
             showHidden = !showHidden;
+            refresh();
+        });
+        panel.querySelector('.mdr-restore-all').addEventListener('click', () => {
+            cfg.hidden = [];
+            showHidden = false;
+            save();
             refresh();
         });
 
@@ -281,10 +288,12 @@
             t._mdrBtn.title = isHidden ? 'Przywróć postać' : 'Ukryj postać';
         });
         const btn = document.querySelector('.mdr-show');
+        const restoreAll = document.querySelector('.mdr-restore-all');
         if (btn) {
             btn.textContent = showHidden ? 'Schowaj ukryte' : 'Pokaż ukryte (' + count + ')';
             btn.style.display = count || showHidden ? '' : 'none';
         }
+        if (restoreAll) restoreAll.style.display = count ? '' : 'none';
     }
 
     // ---------- główna logika ----------
@@ -388,14 +397,46 @@
         timer = setTimeout(refresh, 60);
     });
 
+    function exposeEnterGameButton() {
+        const button = document.querySelector('.info-container .enter-game');
+        if (!button) return;
+        const container = button.closest('.info-container');
+        button.hidden = false;
+        button.style.removeProperty('display');
+        if (container) {
+            container.hidden = false;
+            container.style.removeProperty('display');
+        }
+    }
+
     function closeEmailNotice() {
         const notice = document.querySelector('.disabled-enter-game-info');
-        if (!notice || notice.dataset.mdrClosed) return;
+        if (!notice) return;
         const close = notice.querySelector('.close-game-info');
-        if (close) {
-            notice.dataset.mdrClosed = '1';
-            close.click();
+        if (!close || notice._mdrCloseScheduled) return;
+        const attempts = Number(notice.dataset.mdrCloseAttempts || 0);
+        if (attempts >= 12) {
+            // Ostatnia deska ratunku dla profili, w których obsługa X ładuje się
+            // z opóźnieniem albo nie jest dostępna. Komunikat jest tylko zaleceniem.
+            notice.remove();
+            exposeEnterGameButton();
+            return;
         }
+        notice.dataset.mdrCloseAttempts = String(attempts + 1);
+        notice._mdrCloseScheduled = true;
+        try { close.click(); } catch (e) { console.warn('[Margonem układ postaci] Nie udało się zamknąć komunikatu e-mail', e); }
+        setTimeout(() => {
+            notice._mdrCloseScheduled = false;
+            if (!notice.isConnected) return;
+            const noticeStyle = getComputedStyle(notice);
+            const enterButton = document.querySelector('.info-container .enter-game');
+            if (noticeStyle.display === 'none' || noticeStyle.visibility === 'hidden') return;
+            if (enterButton && getComputedStyle(enterButton).display !== 'none') {
+                notice.remove();
+                return;
+            }
+            closeEmailNotice();
+        }, 300);
     }
 
     function refresh() {

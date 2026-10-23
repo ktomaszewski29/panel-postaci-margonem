@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#eef1ec">
-  <meta name="description" content="Instrukcja instalacji i obsługi userscriptu Margonem – panel zmiany postaci">
+  <meta name="description" content="Instrukcja instalacji i obsługi userscriptu Margonem – panel zmiany postaci.">
   <title>Panel zmiany postaci</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -80,7 +80,7 @@
   <div class="wrap">
     <header class="top">
       <div class="mark" aria-hidden="true">M</div>
-      <div class="title-wrap"><div class="kicker">Dodatek do Margonem</div><h1>Panel zmiany postaci</h1><span class="version">wersja 1.4</span></div>
+      <div class="title-wrap"><div class="kicker">Dodatek do Margonem</div><h1>Panel zmiany postaci</h1><span class="version">wersja 1.5</span></div>
     </header>
     <p class="lead">Userscript do porządkowania ekranu wyboru postaci. Ustaw własną kolejność, ukryj nieużywane postacie, podziel listę według światów i wybierz ulubioną postać.</p>
     <div class="download">
@@ -96,9 +96,9 @@
         <li>Zapamiętuje sortowanie wybrane z listy „Sortuj wg”.</li>
         <li>Pozwala przeciągać kafelki i zachować własną kolejność.</li>
         <li>Grupuje postacie według światów i ukrywa puste grupy.</li>
-        <li>Pozwala ukrywać postacie. Możesz je później podejrzeć lub przywrócić.</li>
+        <li>Pozwala ukrywać postacie, podejrzeć ukryte i odkryć je wszystkie jednym przyciskiem.</li>
         <li>Po pojawieniu się listy po zalogowaniu wybiera ulubioną postać przez zwykłą obsługę strony Margonem.</li>
-        <li>Automatycznie zamyka komunikat o nieustawionym adresie e-mail.</li>
+        <li>Automatycznie zamyka komunikat o nieustawionym adresie e-mail. Ponawia próbę, jeśli strona jeszcze nie obsługuje kliknięcia X.</li>
       </ul>
     </section>
 
@@ -108,7 +108,7 @@
       <ol class="kroki">
         <li><div><h3>Zainstaluj Tampermonkey</h3><p>Dodaj rozszerzenie Tampermonkey do swojej przeglądarki i upewnij się, że jest włączone. Jeśli ikony nie widać obok paska adresu, otwórz menu rozszerzeń i przypnij ją.</p><p><a href="https://www.tampermonkey.net/" target="_blank" rel="noreferrer">Otwórz oficjalną stronę Tampermonkey ↗</a></p></div></li>
         <li><div><h3>Pobierz skrypt</h3><p>Kliknij <a href="./panel-zmiany-postaci.user.js" download>„Pobierz userscript”</a>. Otwórz pobrany plik z rozszerzeniem <code>.user.js</code>.</p></div></li>
-        <li><div><h3>Zainstaluj dodatek</h3><p>Tampermonkey pokaże stronę instalacji skryptu. Wybierz <strong>Zainstaluj</strong>. Jeśli masz już starszą wersję, zaktualizuj ją albo wyłącz starą kopię.</p></div></li>
+        <li><div><h3>Zainstaluj dodatek</h3><p>Tampermonkey pokaże stronę instalacji skryptu. Wybierz <strong>Zainstaluj</strong>. Po zmianie nazwy sprawdź listę skryptów i wyłącz starszy wpis „Margonem – układ listy postaci”, jeśli pojawi się obok nowego.</p></div></li>
         <li><div><h3>Odśwież Margonem</h3><p>Wróć na <code>margonem.pl</code> i odśwież stronę. Otwórz okno „Wybierz Postać”; opcje dodatku znajdziesz pod kontrolką sortowania.</p></div></li>
       </ol>
       <div class="uwaga"><p><strong>Chrome, Edge i Opera:</strong> jeśli Tampermonkey nie uruchamia skryptów użytkownika, otwórz ustawienia rozszerzenia i włącz opcję „Zezwalaj na skrypty użytkownika” (Allow User Scripts). W Firefoksie ten przełącznik zwykle nie jest potrzebny.</p></div>
@@ -120,6 +120,7 @@
         <tr><td><strong>Własna kolejność</strong></td><td>Przeciągnij kafelek na nowe miejsce. Skrypt zapamięta kolejność i zaznaczy tę opcję.</td></tr>
         <tr><td><strong>Rozdziel wg światów</strong></td><td>Włącza osobne grupy postaci według ich świata.</td></tr>
         <tr><td><strong>Pokaż ukryte</strong></td><td>Pokazuje ukryte kafelki w trybie podglądu. Kliknij ↺ przy postaci, aby ją przywrócić.</td></tr>
+        <tr><td><strong>Odkryj wszystkie</strong></td><td>Natychmiast usuwa wszystkie postacie z listy ukrytych.</td></tr>
         <tr><td><strong>✕ / ↺ na kafelku</strong></td><td>✕ ukrywa postać, a ↺ przywraca ją po włączeniu podglądu ukrytych.</td></tr>
         <tr><td><strong>☆ / ★ na kafelku</strong></td><td>Ustawia albo odznacza ulubioną postać.</td></tr>
         <tr><td><strong>Resetuj kolejność</strong></td><td>Usuwa własną kolejność i wyłącza jej używanie. Nie kasuje ulubionej ani ukrytych postaci.</td></tr>
@@ -145,14 +146,15 @@
 
     <section id="faq">
       <h2>Gdy coś nie działa</h2>
-      <details><summary>Nie widzę opcji dodatku</summary><p>Odśwież stronę Margonem. Upewnij się, że skrypt jest włączony w Tampermonkey i działa tylko jedna jego kopia.</p></details>
+      <details><summary>Nie widzę opcji dodatku</summary><p>Odśwież stronę Margonem. Upewnij się, że skrypt jest włączony w Tampermonkey dla tego profilu Brave i działa tylko jedna jego kopia. Profile Brave mają osobne ustawienia rozszerzeń.</p></details>
+      <details><summary>Komunikat o e-mailu nadal widać</summary><p>Wersja 1.5 ponawia zamknięcie, jeśli Margonem nie podpiął jeszcze obsługi X. Po kilku sekundach usuwa sam komunikat i odsłania przycisk „Wejdź do gry”, jeśli jest już na stronie. Sprawdź, czy Tampermonkey i userscript są włączone właśnie w tym profilu Brave.</p></details>
       <details><summary>Ulubiona postać nie wybiera się automatycznie</summary><p>Sprawdź, czy w bieżącym zestawie konta jest ta postać. Wybór następuje dopiero po pojawieniu się jej kafelka w stronie.</p></details>
-      <details><summary>Po włączeniu grupowania światów widzę nagłówek, ale nie kafelek</summary><p>Zaktualizuj userscript do wersji 1.4 i odśwież stronę. Ta wersja poprawia przenoszenie kafelków do grup świata.</p></details>
+      <details><summary>Po włączeniu grupowania światów widzę nagłówek, ale nie kafelek</summary><p>Zaktualizuj userscript do wersji 1.4 lub nowszej i odśwież stronę. Ta wersja poprawia przenoszenie kafelków do grup świata.</p></details>
       <details><summary>Co się stanie z ukrytymi postaciami?</summary><p>Ukrywanie zmienia wyłącznie widoczność kafelka w przeglądarce. Nie usuwa postaci z konta.</p></details>
       <details><summary>Jak zaktualizować skrypt?</summary><p>Pobierz najnowszy plik i zainstaluj go w Tampermonkey, zastępując poprzednią wersję. Potem odśwież Margonem.</p></details>
     </section>
 
-    <footer>Instrukcja do userscriptu „Margonem – układ listy postaci” · wersja 1.4</footer>
+    <footer>Instrukcja do userscriptu „Margonem – panel zmiany postaci” · wersja 1.5</footer>
   </div>
 </body>
 </html>
