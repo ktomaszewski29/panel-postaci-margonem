@@ -111,14 +111,14 @@
         <li><div><h3>Zainstaluj dodatek</h3><p>Wybierz <strong>Zainstaluj</strong> w Tampermonkey. Jeśli masz wcześniejszą kopię dodatku, wyłącz starszy wpis „Margonem – układ listy postaci”, aby nie uruchamiać dwóch wersji naraz.</p></div></li>
         <li><div><h3>Odśwież Margonem</h3><p>Wróć na <code>margonem.pl</code> i odśwież stronę. Otwórz okno „Wybierz Postać”; opcje dodatku znajdziesz pod kontrolką sortowania.</p></div></li>
       </ol>
-      <div class="uwaga"><p><strong>Masz już wersję 1.5 lub starszą?</strong> Zainstaluj raz wersję 1.6 z przycisku powyżej. Starsza kopia nie ma jeszcze adresu aktualizacji, więc nie pobierze sama tej konfiguracji. Następne wersje Tampermonkey będzie już sprawdzać i pobierać z GitHuba.</p></div>
+      <div class="uwaga"><p><strong>Masz wersję 1.5 lub starszą?</strong> Zainstaluj raz wersję 1.7 z przycisku powyżej — starsze wydania nie mają adresu aktualizacji. Wersja 1.6 i nowsze mogą już pobierać kolejne wydania z GitHuba.</p></div>
       <div class="uwaga"><p><strong>Chrome, Edge i Opera:</strong> jeśli Tampermonkey nie uruchamia skryptów użytkownika, otwórz ustawienia rozszerzenia i włącz opcję „Zezwalaj na skrypty użytkownika” (Allow User Scripts). W Firefoksie ten przełącznik zwykle nie jest potrzebny.</p></div>
     </section>
 
     <section id="aktualizacje">
       <h2>Aktualizacje z GitHuba</h2>
-      <p>Dodatek ma wbudowane adresy <code>@updateURL</code> i <code>@downloadURL</code> wskazujące na repozytorium GitHub. Tampermonkey okresowo sprawdza, czy opublikowano wyższą wersję, i pobiera ją z tego samego źródła. Nie trzeba ręcznie pobierać pliku ani wklejać kodu.</p>
-      <p>Aktualizacja pojawia się po opublikowaniu nowego wydania i sprawdzeniu aktualizacji przez Tampermonkey; może nie być natychmiastowa. Możesz też użyć polecenia sprawdzania aktualizacji w panelu Tampermonkey.</p>
+      <p>Od wersji 1.6 dodatek ma adresy <code>@updateURL</code> i <code>@downloadURL</code> wskazujące repozytorium GitHub. Tampermonkey sprawdza, czy opublikowano nowsze wydanie, i pobiera je z tego źródła. Nie trzeba ręcznie pobierać pliku ani wklejać kodu.</p>
+      <p>W Tampermonkey 5.5 i nowszym sprawdzenie dostępności aktualizacji jest oddzielone od jej instalacji. Po sprawdzeniu może być potrzebne zatwierdzenie aktualizacji. Aby instalować je bez potwierdzeń, włącz w ustawieniach Tampermonkey opcję <strong>Automatic installation</strong>. Po aktualizacji odśwież stronę Margonem.</p>
     </section>
 
     <section id="obsluga">
@@ -158,7 +158,7 @@
       <details><summary>Ulubiona postać nie wybiera się automatycznie</summary><p>Sprawdź, czy w bieżącym zestawie konta jest ta postać. Wybór następuje dopiero po pojawieniu się jej kafelka w stronie.</p></details>
       <details><summary>Po włączeniu grupowania światów widzę nagłówek, ale nie kafelek</summary><p>Zaktualizuj userscript do wersji 1.4 lub nowszej i odśwież stronę. Ta wersja poprawia przenoszenie kafelków do grup świata.</p></details>
       <details><summary>Co się stanie z ukrytymi postaciami?</summary><p>Ukrywanie zmienia wyłącznie widoczność kafelka w przeglądarce. Nie usuwa postaci z konta.</p></details>
-      <details><summary>Jak zaktualizować skrypt?</summary><p>Od wersji 1.6 Tampermonkey sprawdza aktualizacje z GitHuba. Możesz poczekać na automatyczne sprawdzenie albo uruchomić je ręcznie w panelu Tampermonkey. Po aktualizacji odśwież Margonem. Jeśli używasz wersji 1.5 lub starszej, zainstaluj jednorazowo nową wersję przyciskiem na górze tej strony.</p></details>
+      <details><summary>Jak zaktualizować skrypt?</summary><p>Od wersji 1.6 skrypt pobiera aktualizacje z GitHuba. W Tampermonkey wybierz „Check for userscript updates”, a jeśli aktualizacja wymaga zatwierdzenia, zaakceptuj ją. Wersja 5.5 i nowsza może wymagać włączenia opcji „Automatic installation”, aby instalować aktualizacje bez potwierdzeń. Po aktualizacji odśwież Margonem. Wersję 1.5 lub starszą zaktualizuj jednorazowo przyciskiem instalacji na górze tej strony.</p></details>
     </section>
 
     <footer>Instrukcja do userscriptu „Margonem – panel zmiany postaci” · wersja 1.7</footer>
