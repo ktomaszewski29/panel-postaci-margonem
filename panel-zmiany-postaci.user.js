@@ -1,8 +1,10 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.5
+// @version      1.6
 // @description  Panel zmiany postaci: własna kolejność, sortowanie, grupowanie światów, ukrywanie i wybór ulubionej postaci
+// @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
+// @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @match        https://www.margonem.pl/*
 // @match        https://margonem.pl/*
 // @grant        GM_getValue

@@ -80,14 +80,14 @@
   <div class="wrap">
     <header class="top">
       <div class="mark" aria-hidden="true">M</div>
-      <div class="title-wrap"><div class="kicker">Dodatek do Margonem</div><h1>Panel zmiany postaci</h1><span class="version">wersja 1.5</span></div>
+      <div class="title-wrap"><div class="kicker">Dodatek do Margonem</div><h1>Panel zmiany postaci</h1><span class="version">wersja 1.6</span></div>
     </header>
     <p class="lead">Userscript do porządkowania ekranu wyboru postaci. Ustaw własną kolejność, ukryj nieużywane postacie, podziel listę według światów i wybierz ulubioną postać.</p>
     <div class="download">
-      <a href="./panel-zmiany-postaci.user.js" download>↓ Pobierz userscript</a>
+      <a href="https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js">↓ Zainstaluj w Tampermonkey</a>
       <a class="secondary" href="#instalacja">Instrukcja instalacji</a>
     </div>
-    <p class="status">Wymaga Tampermonkey i strony margonem.pl.</p>
+    <p class="status">Wymaga Tampermonkey i strony margonem.pl. Instalacja oraz aktualizacje odbywają się bezpośrednio z GitHuba.</p>
 
     <section id="funkcje">
       <h2>Co robi dodatek</h2>
@@ -104,14 +104,21 @@
 
     <section id="instalacja">
       <h2>Instalacja krok po kroku</h2>
-      <p>Potrzebujesz przeglądarki z rozszerzeniem Tampermonkey. Instalacja zajmuje kilka minut.</p>
+      <p>Potrzebujesz przeglądarki z rozszerzeniem Tampermonkey. Kliknięcie przycisku instalacji otworzy skrypt hostowany na GitHubie w Tampermonkey.</p>
       <ol class="kroki">
         <li><div><h3>Zainstaluj Tampermonkey</h3><p>Dodaj rozszerzenie Tampermonkey do swojej przeglądarki i upewnij się, że jest włączone. Jeśli ikony nie widać obok paska adresu, otwórz menu rozszerzeń i przypnij ją.</p><p><a href="https://www.tampermonkey.net/" target="_blank" rel="noreferrer">Otwórz oficjalną stronę Tampermonkey ↗</a></p></div></li>
-        <li><div><h3>Pobierz skrypt</h3><p>Kliknij <a href="./panel-zmiany-postaci.user.js" download>„Pobierz userscript”</a>. Otwórz pobrany plik z rozszerzeniem <code>.user.js</code>.</p></div></li>
-        <li><div><h3>Zainstaluj dodatek</h3><p>Tampermonkey pokaże stronę instalacji skryptu. Wybierz <strong>Zainstaluj</strong>. Po zmianie nazwy sprawdź listę skryptów i wyłącz starszy wpis „Margonem – układ listy postaci”, jeśli pojawi się obok nowego.</p></div></li>
+        <li><div><h3>Otwórz instalator skryptu</h3><p>Kliknij <a href="https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js">link instalacyjny</a>. Tampermonkey otworzy stronę instalacji skryptu z GitHuba.</p></div></li>
+        <li><div><h3>Zainstaluj dodatek</h3><p>Wybierz <strong>Zainstaluj</strong> w Tampermonkey. Jeśli masz wcześniejszą kopię dodatku, wyłącz starszy wpis „Margonem – układ listy postaci”, aby nie uruchamiać dwóch wersji naraz.</p></div></li>
         <li><div><h3>Odśwież Margonem</h3><p>Wróć na <code>margonem.pl</code> i odśwież stronę. Otwórz okno „Wybierz Postać”; opcje dodatku znajdziesz pod kontrolką sortowania.</p></div></li>
       </ol>
+      <div class="uwaga"><p><strong>Masz już wersję 1.5 lub starszą?</strong> Zainstaluj raz wersję 1.6 z przycisku powyżej. Starsza kopia nie ma jeszcze adresu aktualizacji, więc nie pobierze sama tej konfiguracji. Następne wersje Tampermonkey będzie już sprawdzać i pobierać z GitHuba.</p></div>
       <div class="uwaga"><p><strong>Chrome, Edge i Opera:</strong> jeśli Tampermonkey nie uruchamia skryptów użytkownika, otwórz ustawienia rozszerzenia i włącz opcję „Zezwalaj na skrypty użytkownika” (Allow User Scripts). W Firefoksie ten przełącznik zwykle nie jest potrzebny.</p></div>
+    </section>
+
+    <section id="aktualizacje">
+      <h2>Aktualizacje z GitHuba</h2>
+      <p>Dodatek ma wbudowane adresy <code>@updateURL</code> i <code>@downloadURL</code> wskazujące na repozytorium GitHub. Tampermonkey okresowo sprawdza, czy opublikowano wyższą wersję, i pobiera ją z tego samego źródła. Nie trzeba ręcznie pobierać pliku ani wklejać kodu.</p>
+      <p>Aktualizacja pojawia się po opublikowaniu nowego wydania i sprawdzeniu aktualizacji przez Tampermonkey; może nie być natychmiastowa. Możesz też użyć polecenia sprawdzania aktualizacji w panelu Tampermonkey.</p>
     </section>
 
     <section id="obsluga">
@@ -147,14 +154,14 @@
     <section id="faq">
       <h2>Gdy coś nie działa</h2>
       <details><summary>Nie widzę opcji dodatku</summary><p>Odśwież stronę Margonem. Upewnij się, że skrypt jest włączony w Tampermonkey dla tego profilu Brave i działa tylko jedna jego kopia. Profile Brave mają osobne ustawienia rozszerzeń.</p></details>
-      <details><summary>Komunikat o e-mailu nadal widać</summary><p>Wersja 1.5 ponawia zamknięcie, jeśli Margonem nie podpiął jeszcze obsługi X. Po kilku sekundach usuwa sam komunikat i odsłania przycisk „Wejdź do gry”, jeśli jest już na stronie. Sprawdź, czy Tampermonkey i userscript są włączone właśnie w tym profilu Brave.</p></details>
+      <details><summary>Komunikat o e-mailu nadal widać</summary><p>Wersja 1.5 i nowsze ponawiają zamknięcie, jeśli Margonem nie podpiął jeszcze obsługi X. Po kilku sekundach skrypt usuwa sam komunikat i odsłania przycisk „Wejdź do gry”, jeśli jest już na stronie. Sprawdź, czy Tampermonkey i userscript są włączone właśnie w tym profilu Brave.</p></details>
       <details><summary>Ulubiona postać nie wybiera się automatycznie</summary><p>Sprawdź, czy w bieżącym zestawie konta jest ta postać. Wybór następuje dopiero po pojawieniu się jej kafelka w stronie.</p></details>
       <details><summary>Po włączeniu grupowania światów widzę nagłówek, ale nie kafelek</summary><p>Zaktualizuj userscript do wersji 1.4 lub nowszej i odśwież stronę. Ta wersja poprawia przenoszenie kafelków do grup świata.</p></details>
       <details><summary>Co się stanie z ukrytymi postaciami?</summary><p>Ukrywanie zmienia wyłącznie widoczność kafelka w przeglądarce. Nie usuwa postaci z konta.</p></details>
-      <details><summary>Jak zaktualizować skrypt?</summary><p>Pobierz najnowszy plik i zainstaluj go w Tampermonkey, zastępując poprzednią wersję. Potem odśwież Margonem.</p></details>
+      <details><summary>Jak zaktualizować skrypt?</summary><p>Od wersji 1.6 Tampermonkey sprawdza aktualizacje z GitHuba. Możesz poczekać na automatyczne sprawdzenie albo uruchomić je ręcznie w panelu Tampermonkey. Po aktualizacji odśwież Margonem. Jeśli używasz wersji 1.5 lub starszej, zainstaluj jednorazowo nową wersję przyciskiem na górze tej strony.</p></details>
     </section>
 
-    <footer>Instrukcja do userscriptu „Margonem – panel zmiany postaci” · wersja 1.5</footer>
+    <footer>Instrukcja do userscriptu „Margonem – panel zmiany postaci” · wersja 1.6</footer>
   </div>
 </body>
 </html>
