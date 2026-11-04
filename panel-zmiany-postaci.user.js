@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.10
+// @version      1.11
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -54,7 +54,6 @@
     const legacyHidden = new Set(legacyPrefs.hidden || []);
     const legacyOrder = (legacyPrefs.order || []).slice();
     let legacySort = legacyPrefs.sort || 'default';
-    let legacyGroup = legacyPrefs.group === true;
     let legacyRoster = null;
     let legacySelectFavorite = null;
     let legacyShowHidden = false;
@@ -66,7 +65,6 @@
         legacyPrefs.hidden = [...legacyHidden];
         legacyPrefs.order = legacyOrder;
         legacyPrefs.sort = legacySort;
-        legacyPrefs.group = legacyGroup;
         legacyPrefs.favorites = legacyPrefs.favorites || {};
         if (legacyRoster) {
             if (legacySelectFavorite) legacyPrefs.favorites[legacyRoster] = legacySelectFavorite;
@@ -89,7 +87,7 @@
     }
 
     function currentLegacyArrangementKey() {
-        return [legacyRoster, legacyPrefs.custom === true, legacyGroup, legacySort, legacyOrder.join('|')].join('::');
+        return [legacyRoster, legacyPrefs.custom === true, legacySort, legacyOrder.join('|')].join('::');
     }
 
     function findLegacySelect() {
@@ -104,10 +102,6 @@
         const roster = options.map(legacyOptionKey).sort().join('|');
         if (legacyRoster === roster && legacyOriginalOrder.every((option) => select.contains(option))) return;
         legacyRoster = roster;
-        if (!Object.prototype.hasOwnProperty.call(legacyPrefs, 'group')) {
-            legacyGroup = select.querySelector('optgroup') !== null;
-            legacyPrefs.group = legacyGroup;
-        }
         options.forEach((option) => { option.dataset.mdrWorld = legacyOptionWorld(option); });
         legacySelectFavorite = legacyPrefs.favorites?.[roster] || null;
         legacyAutoSelected = false;
@@ -121,10 +115,6 @@
         const selected = select.selectedOptions[0];
         const originalIndex = new Map(legacyOriginalOrder.map((option, index) => [option, index]));
         const compare = (a, b) => {
-            if (legacyGroup) {
-                const worldOrder = legacyOptionWorld(a).localeCompare(legacyOptionWorld(b), 'pl');
-                if (worldOrder) return worldOrder;
-            }
             if (legacyPrefs.custom && legacyOrder.length) {
                 const ai = legacyOrder.indexOf(legacyOptionKey(a));
                 const bi = legacyOrder.indexOf(legacyOptionKey(b));
@@ -140,26 +130,32 @@
             if (legacySort === 'name-desc') return b.textContent.localeCompare(a.textContent, 'pl');
             return originalIndex.get(a) - originalIndex.get(b);
         };
-        options.sort(compare);
-
-        if (legacyGroup) {
-            const groups = new Map();
-            options.forEach((option) => {
-                const world = legacyOptionWorld(option);
-                if (!groups.has(world)) {
-                    const group = document.createElement('optgroup');
-                    group.label = world;
-                    groups.set(world, group);
-                }
-                groups.get(world).appendChild(option);
-            });
-            [...select.querySelectorAll('optgroup')].forEach((group) => group.remove());
-            [...groups.values()].forEach((group) => select.appendChild(group));
-        } else if (select.querySelector('optgroup')) {
-            options.forEach((option) => select.appendChild(option));
-            [...select.querySelectorAll('optgroup')].forEach((group) => group.remove());
+        const groups = [...select.children].filter((child) => child.tagName === 'OPTGROUP');
+        const looseOptions = [...select.children].filter((child) => child.tagName === 'OPTION' && child.value !== '');
+        const sortGroupOptions = (parent) => {
+            const children = [...parent.children].filter((child) => child.tagName === 'OPTION');
+            children.sort(compare).forEach((option) => parent.appendChild(option));
+        };
+        if (groups.length) {
+            groups.forEach(sortGroupOptions);
+            if (legacyPrefs.custom && legacyOrder.length) {
+                const firstPosition = (group) => Math.min(...[...group.children].map((option) => {
+                    const index = legacyOrder.indexOf(legacyOptionKey(option));
+                    return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+                }));
+                groups.sort((a, b) => firstPosition(a) - firstPosition(b));
+            } else if (legacySort !== 'default') {
+                const groupHead = (group) => [...group.children].find((option) => option.tagName === 'OPTION');
+                groups.sort((a, b) => {
+                    const ao = groupHead(a), bo = groupHead(b);
+                    if (!ao) return 1;
+                    if (!bo) return -1;
+                    return compare(ao, bo);
+                });
+            }
+            groups.forEach((group) => select.appendChild(group));
         } else {
-            options.forEach((option) => select.appendChild(option));
+            looseOptions.sort(compare).forEach((option) => select.appendChild(option));
         }
         if (selected) select.selectedIndex = [...select.options].indexOf(selected);
         legacyArrangementKey = currentLegacyArrangementKey();
@@ -193,8 +189,14 @@
         const custom = panel.querySelector('.mdr-legacy-custom');
         const siblings = selected ? [...selected.parentElement.children].filter((child) => child.tagName === 'OPTION' && !child.hidden) : [];
         const siblingIndex = selected ? siblings.indexOf(selected) : -1;
-        if (moveUp) moveUp.disabled = !selected || !custom?.checked || siblingIndex <= 0;
-        if (moveDown) moveDown.disabled = !selected || !custom?.checked || siblingIndex < 0 || siblingIndex >= siblings.length - 1;
+        const worldGroups = selected?.parentElement.tagName === 'OPTGROUP'
+            ? [...select.children].filter((child) => child.tagName === 'OPTGROUP') : [];
+        const groupIndex = worldGroups.indexOf(selected?.parentElement);
+        const useGroups = siblings.length <= 1 && worldGroups.length > 1;
+        const position = useGroups ? groupIndex : siblingIndex;
+        const length = useGroups ? worldGroups.length : siblings.length;
+        if (moveUp) moveUp.disabled = !selected || !custom?.checked || position <= 0;
+        if (moveDown) moveDown.disabled = !selected || !custom?.checked || position < 0 || position >= length - 1;
     }
 
     function ensureLegacyPanel(select) {
@@ -206,27 +208,24 @@
         const panel = document.createElement('div');
         panel.className = 'mdr-legacy-panel';
         panel._mdrSelect = select;
-        panel.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:6px 0;padding:6px;border:1px solid rgba(255,220,130,.45);border-radius:4px;background:rgba(0,0,0,.18);font:12px Arial,sans-serif;';
-        const buttonStyle = 'cursor:pointer;min-height:25px;padding:3px 7px;border:1px solid #593a22;border-radius:3px;background:linear-gradient(#8a4c28,#542817);color:#ffe7a0;font:12px Arial,sans-serif;';
+        panel.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center;width:100%;box-sizing:border-box;margin:5px 0 7px;padding:5px;border:1px solid rgba(255,220,130,.45);border-radius:4px;background:rgba(0,0,0,.22);font:12px Arial,sans-serif;line-height:1.2;';
+        const buttonStyle = 'cursor:pointer;min-width:0;min-height:25px;padding:3px 5px;border:1px solid #593a22;border-radius:3px;background:linear-gradient(#8a4c28,#542817);color:#ffe7a0;font:12px Arial,sans-serif;white-space:normal;';
+        const full = 'grid-column:1 / -1;';
         panel.innerHTML =
-            '<label style="display:inline-flex;align-items:center;gap:3px;color:#ffe7a0"><input class="mdr-legacy-custom" type="checkbox">Własna kolejność</label>' +
-            '<label style="display:inline-flex;align-items:center;gap:3px;color:#ffe7a0"><input class="mdr-legacy-group" type="checkbox">Rozdziel wg światów</label>' +
-            '<select class="mdr-legacy-sort" aria-label="Sortuj postacie" style="max-width:155px"><option value="default">Domyślna kolejność</option><option value="name-asc">Nazwy A–Z</option><option value="name-desc">Nazwy Z–A</option><option value="level-asc">Poziom rosnąco</option><option value="level-desc">Poziom malejąco</option></select>' +
-            '<span style="display:flex;flex-wrap:wrap;gap:4px;width:100%">' +
-            '<button type="button" class="mdr-legacy-favorite" style="' + buttonStyle + '">☆ Ustaw ulubioną</button>' +
+            '<label style="' + full + 'display:flex;align-items:center;gap:5px;color:#ffe7a0;font:12px Arial,sans-serif"><input class="mdr-legacy-custom" type="checkbox" style="margin:0">Własna kolejność</label>' +
+            '<select class="mdr-legacy-sort" aria-label="Sortuj postacie" style="' + full + 'width:100%;box-sizing:border-box;font:12px Arial,sans-serif"><option value="default">Kolejność domyślna</option><option value="name-asc">Nazwa A–Z</option><option value="name-desc">Nazwa Z–A</option><option value="level-asc">Poziom rosnąco</option><option value="level-desc">Poziom malejąco</option></select>' +
+            '<button type="button" class="mdr-legacy-favorite" style="' + buttonStyle + full + '">☆ Ulubiona</button>' +
             '<button type="button" class="mdr-legacy-hide" style="' + buttonStyle + '">Ukryj wybraną</button>' +
-            '<button type="button" class="mdr-legacy-up" style="' + buttonStyle + '" title="Przesuń wyżej">↑</button>' +
-            '<button type="button" class="mdr-legacy-down" style="' + buttonStyle + '" title="Przesuń niżej">↓</button>' +
-            '<button type="button" class="mdr-legacy-hidden" style="' + buttonStyle + '"></button>' +
-            '<button type="button" class="mdr-legacy-restore" style="' + buttonStyle + '">Odkryj wszystkie</button>' +
-            '<button type="button" class="mdr-legacy-reset" style="' + buttonStyle + '">Resetuj kolejność</button></span>';
+            '<span style="display:flex;gap:4px;justify-content:flex-end"><button type="button" class="mdr-legacy-up" style="' + buttonStyle + '" title="Przesuń wyżej">↑</button>' +
+            '<button type="button" class="mdr-legacy-down" style="' + buttonStyle + '" title="Przesuń niżej">↓</button></span>' +
+            '<button type="button" class="mdr-legacy-hidden" style="' + buttonStyle + full + '"></button>' +
+            '<button type="button" class="mdr-legacy-restore" style="' + buttonStyle + full + '">Odkryj wszystkie</button>' +
+            '<button type="button" class="mdr-legacy-reset" style="' + buttonStyle + full + '">Resetuj kolejność</button>';
         select.insertAdjacentElement('afterend', panel);
 
         const custom = panel.querySelector('.mdr-legacy-custom');
-        const group = panel.querySelector('.mdr-legacy-group');
         const sort = panel.querySelector('.mdr-legacy-sort');
         custom.checked = legacyPrefs.custom === true;
-        group.checked = legacyGroup;
         sort.value = legacySort;
         custom.addEventListener('change', () => {
             legacyPrefs.custom = custom.checked;
@@ -234,8 +233,11 @@
             arrangeLegacyOptions(select);
             saveLegacy(); updateLegacyPanel(select);
         });
-        group.addEventListener('change', () => { legacyGroup = group.checked; arrangeLegacyOptions(select); saveLegacy(); updateLegacyPanel(select); });
-        sort.addEventListener('change', () => { legacySort = sort.value; arrangeLegacyOptions(select); saveLegacy(); updateLegacyPanel(select); });
+        sort.addEventListener('change', () => {
+            legacySort = sort.value;
+            if (custom.checked) { custom.checked = false; legacyPrefs.custom = false; }
+            arrangeLegacyOptions(select); saveLegacy(); updateLegacyPanel(select);
+        });
         panel.querySelector('.mdr-legacy-favorite').addEventListener('click', () => {
             const option = select.selectedOptions[0];
             if (!option) return;
@@ -266,8 +268,14 @@
             const siblings = [...parent.children].filter((child) => child.tagName === 'OPTION' && !child.hidden);
             const index = siblings.indexOf(option);
             const target = siblings[index + offset];
-            if (!target) return;
-            parent.insertBefore(option, offset < 0 ? target : target.nextSibling);
+            if (target) parent.insertBefore(option, offset < 0 ? target : target.nextSibling);
+            else if (parent.tagName === 'OPTGROUP' && siblings.length === 1) {
+                const groups = [...select.children].filter((child) => child.tagName === 'OPTGROUP');
+                const groupIndex = groups.indexOf(parent);
+                const targetGroup = groups[groupIndex + offset];
+                if (!targetGroup) return;
+                select.insertBefore(parent, offset < 0 ? targetGroup : targetGroup.nextSibling);
+            } else return;
             legacyOrder.splice(0, legacyOrder.length, ...[...select.options].map(legacyOptionKey));
             select.selectedIndex = [...select.options].indexOf(option);
             saveLegacy(); updateLegacyPanel(select);
