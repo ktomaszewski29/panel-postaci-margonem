@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.9
+// @version      1.10
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -720,8 +720,11 @@
         let rerun = false;
         try {
             closeEmailNotice();
-            rerun = run();
-            if (!rerun && !document.querySelector(TILE)) runLegacy();
+            // Motyw klasyczny może pozostawiać w DOM ukryte kafelki .charc
+            // (np. utworzone przez inny dodatek). Wykrycie natywnej listy ma
+            // pierwszeństwo, żeby klasyczny panel nie został pomylony z nowym.
+            if (findLegacySelect()) runLegacy();
+            else rerun = run();
         } catch (e) { console.error('[Margonem układ postaci]', e); }
         obs.observe(document.body, { childList: true, subtree: true });
         if (rerun) setTimeout(refresh, 120);
