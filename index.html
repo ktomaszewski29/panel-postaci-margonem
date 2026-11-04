@@ -80,9 +80,9 @@
   <div class="wrap">
     <header class="top">
       <div class="mark" aria-hidden="true">M</div>
-      <div class="title-wrap"><div class="kicker">Dodatek do Margonem</div><h1>Panel zmiany postaci</h1><span class="version">wersja 1.7</span></div>
+      <div class="title-wrap"><div class="kicker">Dodatek do Margonem</div><h1>Panel zmiany postaci</h1><span class="version">wersja 1.8</span></div>
     </header>
-    <p class="lead">Userscript do porządkowania ekranu wyboru postaci. Ustaw własną kolejność, ukryj nieużywane postacie, podziel listę według światów i wybierz ulubioną postać.</p>
+    <p class="lead">Userscript do porządkowania ekranu wyboru postaci na nowej i klasycznej stronie Margonem. Ustaw własną kolejność, ukryj nieużywane postacie, podziel listę według światów i wybierz ulubioną postać.</p>
     <div class="download">
       <a href="https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js">↓ Zainstaluj w Tampermonkey</a>
       <a class="secondary" href="#instalacja">Instrukcja instalacji</a>
@@ -91,7 +91,7 @@
 
     <section id="funkcje">
       <h2>Co robi dodatek</h2>
-      <p>W oknie „Wybierz Postać” dodaje opcje porządkowania, a na kafelkach postaci — gwiazdkę ulubionej oraz przycisk ukrywania.</p>
+      <p>W nowym panelu „Wybierz Postać” dodaje opcje porządkowania oraz przyciski na kafelkach. W motywie starej strony głównej działa przy natywnej liście wyboru postaci.</p>
       <ul class="punkty">
         <li>Zapamiętuje sortowanie wybrane z listy „Sortuj wg”.</li>
         <li>Pozwala przeciągać kafelki i zachować własną kolejność.</li>
@@ -99,6 +99,7 @@
         <li>Pozwala ukrywać postacie, podejrzeć ukryte i odkryć je wszystkie jednym przyciskiem.</li>
         <li>Po pojawieniu się listy po zalogowaniu wybiera ulubioną postać przez zwykłą obsługę strony Margonem.</li>
         <li>Automatycznie zamyka komunikat o nieustawionym adresie e-mail. Ponawia próbę, jeśli strona jeszcze nie obsługuje kliknięcia X.</li>
+        <li>Na klasycznej stronie pozwala ustawić ulubioną postać, ukrywać i odkrywać postacie, sortować alfabetycznie, grupować według światów oraz zmieniać własną kolejność przyciskami ↑ i ↓.</li>
       </ul>
     </section>
 
@@ -109,9 +110,9 @@
         <li><div><h3>Zainstaluj Tampermonkey</h3><p>Dodaj rozszerzenie Tampermonkey do swojej przeglądarki i upewnij się, że jest włączone. Jeśli ikony nie widać obok paska adresu, otwórz menu rozszerzeń i przypnij ją.</p><p><a href="https://www.tampermonkey.net/" target="_blank" rel="noreferrer">Otwórz oficjalną stronę Tampermonkey ↗</a></p></div></li>
         <li><div><h3>Otwórz instalator skryptu</h3><p>Kliknij <a href="https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js">link instalacyjny</a>. Tampermonkey otworzy stronę instalacji skryptu z GitHuba.</p></div></li>
         <li><div><h3>Zainstaluj dodatek</h3><p>Wybierz <strong>Zainstaluj</strong> w Tampermonkey. Jeśli masz wcześniejszą kopię dodatku, wyłącz starszy wpis „Margonem – układ listy postaci”, aby nie uruchamiać dwóch wersji naraz.</p></div></li>
-        <li><div><h3>Odśwież Margonem</h3><p>Wróć na <code>margonem.pl</code> i odśwież stronę. Otwórz okno „Wybierz Postać”; opcje dodatku znajdziesz pod kontrolką sortowania.</p></div></li>
+        <li><div><h3>Odśwież Margonem</h3><p>Wróć na <code>margonem.pl</code> i odśwież stronę. W nowym widoku opcje dodatku znajdziesz w oknie „Wybierz Postać”; w klasycznym widoku pojawią się pod listą wyboru postaci.</p></div></li>
       </ol>
-      <div class="uwaga"><p><strong>Masz wersję 1.5 lub starszą?</strong> Zainstaluj raz wersję 1.7 z przycisku powyżej — starsze wydania nie mają adresu aktualizacji. Wersja 1.6 i nowsze mogą już pobierać kolejne wydania z GitHuba.</p></div>
+      <div class="uwaga"><p><strong>Masz wersję 1.5 lub starszą?</strong> Zainstaluj raz wersję 1.8 z przycisku powyżej — starsze wydania nie mają adresu aktualizacji. Wersja 1.6 i nowsze mogą już pobierać kolejne wydania z GitHuba.</p></div>
       <div class="uwaga"><p><strong>Chrome, Edge i Opera:</strong> jeśli Tampermonkey nie uruchamia skryptów użytkownika, otwórz ustawienia rozszerzenia i włącz opcję „Zezwalaj na skrypty użytkownika” (Allow User Scripts). W Firefoksie ten przełącznik zwykle nie jest potrzebny.</p></div>
     </section>
 
@@ -131,14 +132,15 @@
         <tr><td><strong>✕ / ↺ na kafelku</strong></td><td>✕ ukrywa postać, a ↺ przywraca ją po włączeniu podglądu ukrytych.</td></tr>
         <tr><td><strong>☆ / ★ na kafelku</strong></td><td>Ustawia albo odznacza ulubioną postać.</td></tr>
         <tr><td><strong>Resetuj kolejność</strong></td><td>Usuwa własną kolejność i wyłącza jej używanie. Nie kasuje ulubionej ani ukrytych postaci.</td></tr>
+        <tr><td><strong>Klasyczny widok strony</strong></td><td>Przy natywnej liście wybierz postać i użyj przycisków „Ustaw ulubioną” lub „Ukryj wybraną”. Własną kolejność zmienisz strzałkami. Grupowanie światów działa na listach ze światami rozpoznanymi przez motyw.</td></tr>
       </tbody></table></div>
     </section>
 
     <section id="ulubiona">
       <h2>Ulubiona postać i konta zastępców</h2>
-      <p>Kliknij ☆ na kafelku, aby ustawić go jako ulubiony. Gdy skrypt wykryje listę postaci po zalogowaniu, kliknie kafelek z ★, korzystając z natywnego wyboru Margonem.</p>
+      <p>Kliknij ☆ na kafelku w nowym widoku albo wybierz postać na klasycznej stronie i naciśnij „Ustaw ulubioną”. Gdy pojawi się lista postaci, skrypt wybierze tę postać, korzystając z natywnego wyboru Margonem.</p>
       <p>Ulubiona postać jest przypisana do zestawu ID postaci, więc konta używane przez system zastępcy mają osobne wybory. Jeśli zmienisz skład postaci na koncie, identyfikator zestawu również się zmieni.</p>
-      <div class="uwaga"><p><strong>Automatyczny wybór:</strong> zadziała, kiedy kafelek ulubionej postaci pojawi się na stronie. Nie omija logowania ani mechanizmu wyboru postaci Margonem.</p></div>
+      <div class="uwaga"><p><strong>Automatyczny wybór:</strong> zadziała, gdy kafelek lub opcja ulubionej postaci pojawi się na stronie. Nie omija logowania ani mechanizmu wyboru postaci Margonem.</p></div>
     </section>
 
     <section id="zapis">
@@ -161,7 +163,7 @@
       <details><summary>Jak zaktualizować skrypt?</summary><p>Od wersji 1.6 skrypt pobiera aktualizacje z GitHuba. W Tampermonkey wybierz „Check for userscript updates”, a jeśli aktualizacja wymaga zatwierdzenia, zaakceptuj ją. Wersja 5.5 i nowsza może wymagać włączenia opcji „Automatic installation”, aby instalować aktualizacje bez potwierdzeń. Po aktualizacji odśwież Margonem. Wersję 1.5 lub starszą zaktualizuj jednorazowo przyciskiem instalacji na górze tej strony.</p></details>
     </section>
 
-    <footer>Instrukcja do userscriptu „Margonem – panel zmiany postaci” · wersja 1.7</footer>
+    <footer>Instrukcja do userscriptu „Margonem – panel zmiany postaci” · wersja 1.8</footer>
   </div>
 </body>
 </html>
