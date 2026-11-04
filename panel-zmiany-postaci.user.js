@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.17
+// @version      1.18
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -48,14 +48,14 @@
     const MAXI = Number.MAX_SAFE_INTEGER;
     const pinStyle = document.createElement('style');
     pinStyle.textContent = `
-        .mdr-quick-login{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:12px auto 0;max-width:100%;}
+        .mdr-quick-login{display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:7px;margin:8px auto 0;padding:3px 3px 7px;max-width:100%;width:100%;box-sizing:border-box;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;}
         .mdr-quick-login[hidden]{display:none!important}
-        .mdr-quick-character{display:flex;align-items:center;gap:7px;min-width:116px;max-width:180px;min-height:54px;padding:4px 8px;border:1px solid rgba(235,215,170,.45);border-radius:5px;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+        .mdr-quick-character{display:flex;align-items:center;gap:6px;flex:0 0 112px;width:112px;min-width:112px;max-width:112px;height:48px;min-height:48px;padding:3px 6px;border:1px solid rgba(235,215,170,.45);border-radius:5px;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-sizing:border-box;}
         .mdr-quick-character:hover,.mdr-quick-character:focus-visible{border-color:#ffe08a;box-shadow:0 0 0 1px rgba(255,224,138,.5);outline:none;}
-        .mdr-pin-portrait-wrap{display:flex;align-items:flex-start;justify-content:center;flex:0 0 34px;width:34px;height:34px;overflow:hidden;}
-        .mdr-pin-portrait{display:block;width:34px;height:68px;object-fit:cover;object-position:top center;}
+        .mdr-pin-portrait-wrap{display:flex;align-items:flex-start;justify-content:center;flex:0 0 28px;width:28px;height:28px;overflow:hidden;}
+        .mdr-pin-portrait{display:block;width:28px;height:56px;object-fit:cover;object-position:top center;}
         .mdr-quick-label{display:flex;flex-direction:column;min-width:0;line-height:1.2;}
-        .mdr-quick-label strong,.mdr-quick-label small{max-width:125px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .mdr-quick-label strong,.mdr-quick-label small{max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .mdr-quick-label strong{font-size:13px;}.mdr-quick-label small{font-size:11px;opacity:.8;}
     `;
     document.head.appendChild(pinStyle);
@@ -700,7 +700,8 @@
         if (!source) return null;
         const portrait = document.createElement('span'); portrait.className = 'mdr-pin-portrait';
         portrait.style.backgroundImage = getComputedStyle(source).backgroundImage;
-        portrait.style.backgroundPosition = 'center top'; portrait.style.backgroundRepeat = 'no-repeat';
+        portrait.style.backgroundPosition = getComputedStyle(source).backgroundPosition;
+        portrait.style.backgroundRepeat = 'no-repeat';
         portrait.style.backgroundSize = getComputedStyle(source).backgroundSize;
         return portrait;
     }
