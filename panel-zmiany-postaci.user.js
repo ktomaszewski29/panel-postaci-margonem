@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.11
+// @version      1.12
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -52,18 +52,17 @@
     // osobno, aby nie mieszać ich z ustawieniami nowego panelu.
     const legacyPrefs = GM_getValue('legacyPrefs', {});
     const legacyHidden = new Set(legacyPrefs.hidden || []);
-    const legacyOrder = (legacyPrefs.order || []).slice();
     let legacySort = legacyPrefs.sort || 'default';
     let legacyRoster = null;
     let legacySelectFavorite = null;
     let legacyShowHidden = false;
     let legacyAutoSelected = false;
-    let legacyOriginalOrder = [];
-    let legacyArrangementKey = null;
+    let legacySelect = null;
+    let legacyDialog = null;
+    let legacyDialogOpen = false;
 
     function saveLegacy() {
         legacyPrefs.hidden = [...legacyHidden];
-        legacyPrefs.order = legacyOrder;
         legacyPrefs.sort = legacySort;
         legacyPrefs.favorites = legacyPrefs.favorites || {};
         if (legacyRoster) {
@@ -86,10 +85,6 @@
         return match ? Number(match[1]) : Number.NaN;
     }
 
-    function currentLegacyArrangementKey() {
-        return [legacyRoster, legacyPrefs.custom === true, legacySort, legacyOrder.join('|')].join('::');
-    }
-
     function findLegacySelect() {
         return [...document.querySelectorAll('select')].find((select) =>
             select.options.length > 1 && [...select.options].some((option) => /\(\s*\d+\s*[a-ząćęłńóśźż]+\s*\)/i.test(option.textContent))
@@ -100,198 +95,262 @@
         const options = [...select.options].filter((option) => option.value !== '');
         if (!options.length) return;
         const roster = options.map(legacyOptionKey).sort().join('|');
-        if (legacyRoster === roster && legacyOriginalOrder.every((option) => select.contains(option))) return;
+        if (legacyRoster === roster) return false;
         legacyRoster = roster;
         options.forEach((option) => { option.dataset.mdrWorld = legacyOptionWorld(option); });
         legacySelectFavorite = legacyPrefs.favorites?.[roster] || null;
         legacyAutoSelected = false;
-        legacyOriginalOrder = options.slice();
-        legacyArrangementKey = null;
+        const groups = [...select.children].filter((child) => child.tagName === 'OPTGROUP');
+        legacyPrefs.groupOrder = legacyPrefs.groupOrder || groups.map((group) => group.label);
+        legacyPrefs.characterOrder = legacyPrefs.characterOrder || {};
+        groups.forEach((group) => {
+            const world = group.label || '?';
+            if (!legacyPrefs.groupOrder.includes(world)) legacyPrefs.groupOrder.push(world);
+            if (!legacyPrefs.characterOrder[world]) {
+                legacyPrefs.characterOrder[world] = [...group.children].filter((option) => option.value !== '').map(legacyOptionKey);
+            }
+        });
+        // Migruj kolejność zapisaną przez wcześniejsze wydania do osobnych list światów i postaci.
+        if (Array.isArray(legacyPrefs.order) && legacyPrefs.order.length) {
+            const flat = legacyPrefs.order;
+            const rank = (group) => Math.min(...[...group.children].filter((option) => option.value !== '').map((option) => {
+                const index = flat.indexOf(legacyOptionKey(option));
+                return index < 0 ? MAXI : index;
+            }));
+            groups.sort((a, b) => rank(a) - rank(b));
+            legacyPrefs.groupOrder = groups.map((group) => group.label || '?');
+            groups.forEach((group) => {
+                const world = group.label || '?';
+                const keys = [...group.children].filter((option) => option.value !== '').map(legacyOptionKey);
+                const migrated = flat.filter((key) => keys.includes(key));
+                if (migrated.length) legacyPrefs.characterOrder[world] = migrated.concat(keys.filter((key) => !migrated.includes(key)));
+            });
+            delete legacyPrefs.order;
+        }
+        saveLegacy();
+        return true;
     }
 
-    function arrangeLegacyOptions(select) {
-        const options = [...select.options].filter((option) => option.value !== '');
-        if (!options.length) return;
-        const selected = select.selectedOptions[0];
-        const originalIndex = new Map(legacyOriginalOrder.map((option, index) => [option, index]));
-        const compare = (a, b) => {
-            if (legacyPrefs.custom && legacyOrder.length) {
-                const ai = legacyOrder.indexOf(legacyOptionKey(a));
-                const bi = legacyOrder.indexOf(legacyOptionKey(b));
-                if (ai !== bi) return (ai < 0 ? Number.MAX_SAFE_INTEGER : ai) - (bi < 0 ? Number.MAX_SAFE_INTEGER : bi);
-            }
+    const legacySortOptions = (options) => {
+        if (legacySort === 'default') return;
+        options.sort((a, b) => {
             if (legacySort === 'level-asc' || legacySort === 'level-desc') {
-                const al = legacyOptionLevel(a);
-                const bl = legacyOptionLevel(b);
+                const al = legacyOptionLevel(a), bl = legacyOptionLevel(b);
                 if (Number.isNaN(al) !== Number.isNaN(bl)) return Number.isNaN(al) ? 1 : -1;
                 if (!Number.isNaN(al) && al !== bl) return legacySort === 'level-asc' ? al - bl : bl - al;
+            } else {
+                const byName = a.textContent.localeCompare(b.textContent, 'pl', { sensitivity: 'base' });
+                if (byName) return legacySort === 'name-asc' ? byName : -byName;
             }
-            if (legacySort === 'name-asc') return a.textContent.localeCompare(b.textContent, 'pl');
-            if (legacySort === 'name-desc') return b.textContent.localeCompare(a.textContent, 'pl');
-            return originalIndex.get(a) - originalIndex.get(b);
-        };
+            return 0;
+        });
+    };
+
+    function applyLegacyOrder(select) {
+        const selected = select.selectedOptions[0];
         const groups = [...select.children].filter((child) => child.tagName === 'OPTGROUP');
-        const looseOptions = [...select.children].filter((child) => child.tagName === 'OPTION' && child.value !== '');
-        const sortGroupOptions = (parent) => {
-            const children = [...parent.children].filter((child) => child.tagName === 'OPTION');
-            children.sort(compare).forEach((option) => parent.appendChild(option));
-        };
+        const loose = [...select.children].filter((child) => child.tagName === 'OPTION' && child.value !== '');
         if (groups.length) {
-            groups.forEach(sortGroupOptions);
-            if (legacyPrefs.custom && legacyOrder.length) {
-                const firstPosition = (group) => Math.min(...[...group.children].map((option) => {
-                    const index = legacyOrder.indexOf(legacyOptionKey(option));
-                    return index < 0 ? Number.MAX_SAFE_INTEGER : index;
-                }));
-                groups.sort((a, b) => firstPosition(a) - firstPosition(b));
-            } else if (legacySort !== 'default') {
-                const groupHead = (group) => [...group.children].find((option) => option.tagName === 'OPTION');
-                groups.sort((a, b) => {
-                    const ao = groupHead(a), bo = groupHead(b);
-                    if (!ao) return 1;
-                    if (!bo) return -1;
-                    return compare(ao, bo);
-                });
-            }
-            groups.forEach((group) => select.appendChild(group));
-        } else {
-            looseOptions.sort(compare).forEach((option) => select.appendChild(option));
+            groups.sort((a, b) => {
+                const ai = legacyPrefs.groupOrder.indexOf(a.label || '?');
+                const bi = legacyPrefs.groupOrder.indexOf(b.label || '?');
+                return (ai < 0 ? MAXI : ai) - (bi < 0 ? MAXI : bi);
+            });
+            groups.forEach((group) => {
+                const world = group.label || '?';
+                const options = [...group.children].filter((option) => option.value !== '');
+                if (legacySort === 'default') {
+                    const order = legacyPrefs.characterOrder[world] || [];
+                    options.sort((a, b) => {
+                        const ai = order.indexOf(legacyOptionKey(a)), bi = order.indexOf(legacyOptionKey(b));
+                        return (ai < 0 ? MAXI : ai) - (bi < 0 ? MAXI : bi);
+                    });
+                } else legacySortOptions(options);
+                options.forEach((option) => group.appendChild(option));
+                select.appendChild(group);
+            });
+        } else if (loose.length) {
+            if (legacySort === 'default') {
+                const order = legacyPrefs.characterOrder['?'] || [];
+                loose.sort((a, b) => order.indexOf(legacyOptionKey(a)) - order.indexOf(legacyOptionKey(b)));
+            } else legacySortOptions(loose);
+            loose.forEach((option) => select.appendChild(option));
         }
         if (selected) select.selectedIndex = [...select.options].indexOf(selected);
-        legacyArrangementKey = currentLegacyArrangementKey();
+        saveLegacy();
     }
 
-    function updateLegacyPanel(select) {
-        const panel = select.parentElement.querySelector(':scope > .mdr-legacy-panel');
-        if (!panel) return;
-        const selected = select.selectedOptions[0];
-        const selectedKey = selected ? legacyOptionKey(selected) : null;
-        const hiddenCount = [...select.options].filter((option) => legacyHidden.has(legacyOptionKey(option))).length;
-        const favorite = panel.querySelector('.mdr-legacy-favorite');
-        const hide = panel.querySelector('.mdr-legacy-hide');
-        if (favorite) {
-            favorite.textContent = selectedKey && legacySelectFavorite === selectedKey ? '★ Ulubiona' : '☆ Ustaw ulubioną';
-            favorite.disabled = !selected;
-        }
-        if (hide) {
-            hide.textContent = selectedKey && legacyHidden.has(selectedKey) ? 'Przywróć wybraną' : 'Ukryj wybraną';
-            hide.disabled = !selected;
-        }
-        const hiddenButton = panel.querySelector('.mdr-legacy-hidden');
-        if (hiddenButton) {
-            hiddenButton.textContent = legacyShowHidden ? 'Schowaj ukryte' : 'Pokaż ukryte (' + hiddenCount + ')';
-            hiddenButton.hidden = !hiddenCount && !legacyShowHidden;
-        }
-        const restoreAll = panel.querySelector('.mdr-legacy-restore');
-        if (restoreAll) restoreAll.hidden = hiddenCount === 0;
-        const moveUp = panel.querySelector('.mdr-legacy-up');
-        const moveDown = panel.querySelector('.mdr-legacy-down');
-        const custom = panel.querySelector('.mdr-legacy-custom');
-        const siblings = selected ? [...selected.parentElement.children].filter((child) => child.tagName === 'OPTION' && !child.hidden) : [];
-        const siblingIndex = selected ? siblings.indexOf(selected) : -1;
-        const worldGroups = selected?.parentElement.tagName === 'OPTGROUP'
-            ? [...select.children].filter((child) => child.tagName === 'OPTGROUP') : [];
-        const groupIndex = worldGroups.indexOf(selected?.parentElement);
-        const useGroups = siblings.length <= 1 && worldGroups.length > 1;
-        const position = useGroups ? groupIndex : siblingIndex;
-        const length = useGroups ? worldGroups.length : siblings.length;
-        if (moveUp) moveUp.disabled = !selected || !custom?.checked || position <= 0;
-        if (moveDown) moveDown.disabled = !selected || !custom?.checked || position < 0 || position >= length - 1;
+    function legacyGroups(select) {
+        const groups = [...select.children].filter((child) => child.tagName === 'OPTGROUP');
+        return groups.length ? groups : [{ label: 'Postacie', _loose: true, children: [...select.children].filter((child) => child.tagName === 'OPTION' && child.value !== '') }];
+    }
+
+    function reorderLegacyGroup(select, world, targetIndex) {
+        const groupOrder = legacyPrefs.groupOrder || (legacyPrefs.groupOrder = legacyGroups(select).map((group) => group.label || '?'));
+        const from = groupOrder.indexOf(world);
+        if (from < 0 || targetIndex < 0 || targetIndex >= groupOrder.length || from === targetIndex) return;
+        groupOrder.splice(from, 1);
+        groupOrder.splice(targetIndex, 0, world);
+        applyLegacyOrder(select);
+        renderLegacyDialog(select);
+    }
+
+    function reorderLegacyCharacter(select, world, key, targetIndex) {
+        const group = legacyGroups(select).find((item) => (item.label || '?') === world);
+        if (!group) return;
+        const options = group._loose ? group.children : [...group.children].filter((option) => option.value !== '');
+        let order;
+        if (legacySort === 'default') order = (legacyPrefs.characterOrder[world] || (legacyPrefs.characterOrder[world] = options.map(legacyOptionKey))).slice();
+        else { order = options.slice(); legacySortOptions(order); order = order.map(legacyOptionKey); }
+        const from = order.indexOf(key);
+        if (from < 0 || targetIndex < 0 || targetIndex >= order.length || from === targetIndex) return;
+        order.splice(from, 1);
+        order.splice(targetIndex, 0, key);
+        legacySort = 'default';
+        applyLegacyOrder(select);
+        renderLegacyDialog(select);
+    }
+
+    function legacyButton(label, title, onClick) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.textContent = label; button.title = title;
+        button.className = 'mdr-legacy-button'; button.addEventListener('click', onClick);
+        return button;
+    }
+
+    function renderLegacyDialog(select) {
+        if (!legacyDialog) return;
+        const list = legacyDialog.querySelector('.mdr-legacy-list');
+        list.replaceChildren();
+        const sort = legacyDialog.querySelector('.mdr-legacy-sort');
+        sort.value = legacySort;
+        const groups = legacyGroups(select);
+        const groupOrder = legacyPrefs.groupOrder || (legacyPrefs.groupOrder = groups.map((group) => group.label || '?'));
+        groups.sort((a, b) => groupOrder.indexOf(a.label || '?') - groupOrder.indexOf(b.label || '?'));
+        groups.forEach((group, groupIndex) => {
+            const world = group.label || '?';
+            const options = group._loose ? group.children.slice() : [...group.children].filter((option) => option.value !== '');
+            const order = legacyPrefs.characterOrder[world] || (legacyPrefs.characterOrder[world] = options.map(legacyOptionKey));
+            options.sort((a, b) => legacySort === 'default'
+                ? (() => { const ai = order.indexOf(legacyOptionKey(a)), bi = order.indexOf(legacyOptionKey(b)); return (ai < 0 ? MAXI : ai) - (bi < 0 ? MAXI : bi); })()
+                : 0);
+            if (legacySort !== 'default') legacySortOptions(options);
+            const section = document.createElement('section'); section.className = 'mdr-legacy-world';
+            const heading = document.createElement('div'); heading.className = 'mdr-legacy-world-head';
+            const title = document.createElement('strong'); title.textContent = world;
+            const groupControls = document.createElement('span'); groupControls.className = 'mdr-legacy-actions';
+            groupControls.append(
+                legacyButton('↑', 'Przesuń świat wyżej', () => reorderLegacyGroup(select, world, groupIndex - 1)),
+                legacyButton('↓', 'Przesuń świat niżej', () => reorderLegacyGroup(select, world, groupIndex + 1))
+            );
+            heading.append(title, groupControls); heading.draggable = true; heading.dataset.world = world;
+            heading.addEventListener('dragstart', (event) => { event.dataTransfer.setData('text/mdr-world', world); event.dataTransfer.effectAllowed = 'move'; });
+            heading.addEventListener('dragover', (event) => { if (event.dataTransfer.types.includes('text/mdr-world')) event.preventDefault(); });
+            heading.addEventListener('drop', (event) => {
+                const source = event.dataTransfer.getData('text/mdr-world');
+                if (!source || source === world) return;
+                event.preventDefault();
+                const current = [...groupOrder]; const from = current.indexOf(source), to = current.indexOf(world);
+                if (from >= 0 && to >= 0) { current.splice(from, 1); current.splice(to, 0, source); legacyPrefs.groupOrder = current; applyLegacyOrder(select); renderLegacyDialog(select); }
+            });
+            section.appendChild(heading);
+            const chars = document.createElement('div'); chars.className = 'mdr-legacy-characters';
+            options.forEach((option, index) => {
+                const key = legacyOptionKey(option);
+                const row = document.createElement('div'); row.className = 'mdr-legacy-character'; row.draggable = true;
+                row.classList.toggle('is-hidden', legacyHidden.has(key));
+                const text = document.createElement('button'); text.type = 'button'; text.className = 'mdr-legacy-select';
+                text.textContent = option.textContent.trim(); text.title = 'Wybierz tę postać na natywnej liście';
+                text.addEventListener('click', () => { select.selectedIndex = [...select.options].indexOf(option); select.dispatchEvent(new Event('change', { bubbles: true })); });
+                const actions = document.createElement('span'); actions.className = 'mdr-legacy-actions';
+                const favorite = legacyButton(legacySelectFavorite === key ? '★' : '☆', 'Ustaw lub usuń ulubioną postać', () => {
+                    legacySelectFavorite = legacySelectFavorite === key ? null : key; saveLegacy(); renderLegacyDialog(select);
+                });
+                const hide = legacyButton(legacyHidden.has(key) ? '↺' : '×', legacyHidden.has(key) ? 'Odkryj postać' : 'Ukryj postać', () => {
+                    if (legacyHidden.has(key)) legacyHidden.delete(key); else legacyHidden.add(key);
+                    applyLegacyHidden(select); saveLegacy(); renderLegacyDialog(select);
+                });
+                actions.append(
+                    legacyButton('↑', 'Przesuń postać wyżej w tym świecie', () => reorderLegacyCharacter(select, world, key, index - 1)),
+                    legacyButton('↓', 'Przesuń postać niżej w tym świecie', () => reorderLegacyCharacter(select, world, key, index + 1)),
+                    favorite, hide
+                );
+                row.append(text, actions); row.dataset.world = world; row.dataset.key = key;
+                row.addEventListener('dragstart', (event) => {
+                    event.dataTransfer.setData('text/mdr-character', JSON.stringify({ world, key }));
+                    event.dataTransfer.effectAllowed = 'move';
+                });
+                row.addEventListener('dragover', (event) => { if (event.dataTransfer.types.includes('text/mdr-character')) event.preventDefault(); });
+                row.addEventListener('drop', (event) => {
+                    let source; try { source = JSON.parse(event.dataTransfer.getData('text/mdr-character')); } catch (_) { return; }
+                    if (!source || source.world !== world || source.key === key) return;
+                    event.preventDefault();
+                    const keys = (legacySort === 'default' ? (legacyPrefs.characterOrder[world] || options.map(legacyOptionKey)) : options.map(legacyOptionKey)).slice();
+                    const from = keys.indexOf(source.key), to = keys.indexOf(key);
+                    if (from >= 0 && to >= 0) { keys.splice(from, 1); keys.splice(to, 0, source.key); legacyPrefs.characterOrder[world] = keys; legacySort = 'default'; applyLegacyOrder(select); renderLegacyDialog(select); }
+                });
+                chars.appendChild(row);
+            });
+            section.appendChild(chars); list.appendChild(section);
+        });
     }
 
     function ensureLegacyPanel(select) {
         const host = select.parentElement;
-        const previousPanel = [...host.children].find((child) => child.classList.contains('mdr-legacy-panel'));
-        if (previousPanel?._mdrSelect === select) return previousPanel;
-        if (previousPanel) previousPanel.remove();
-
-        const panel = document.createElement('div');
-        panel.className = 'mdr-legacy-panel';
-        panel._mdrSelect = select;
-        panel.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:4px;align-items:center;width:100%;box-sizing:border-box;margin:5px 0 7px;padding:5px;border:1px solid rgba(255,220,130,.45);border-radius:4px;background:rgba(0,0,0,.22);font:12px Arial,sans-serif;line-height:1.2;';
-        const buttonStyle = 'cursor:pointer;min-width:0;min-height:25px;padding:3px 5px;border:1px solid #593a22;border-radius:3px;background:linear-gradient(#8a4c28,#542817);color:#ffe7a0;font:12px Arial,sans-serif;white-space:normal;';
-        const full = 'grid-column:1 / -1;';
-        panel.innerHTML =
-            '<label style="' + full + 'display:flex;align-items:center;gap:5px;color:#ffe7a0;font:12px Arial,sans-serif"><input class="mdr-legacy-custom" type="checkbox" style="margin:0">Własna kolejność</label>' +
-            '<select class="mdr-legacy-sort" aria-label="Sortuj postacie" style="' + full + 'width:100%;box-sizing:border-box;font:12px Arial,sans-serif"><option value="default">Kolejność domyślna</option><option value="name-asc">Nazwa A–Z</option><option value="name-desc">Nazwa Z–A</option><option value="level-asc">Poziom rosnąco</option><option value="level-desc">Poziom malejąco</option></select>' +
-            '<button type="button" class="mdr-legacy-favorite" style="' + buttonStyle + full + '">☆ Ulubiona</button>' +
-            '<button type="button" class="mdr-legacy-hide" style="' + buttonStyle + '">Ukryj wybraną</button>' +
-            '<span style="display:flex;gap:4px;justify-content:flex-end"><button type="button" class="mdr-legacy-up" style="' + buttonStyle + '" title="Przesuń wyżej">↑</button>' +
-            '<button type="button" class="mdr-legacy-down" style="' + buttonStyle + '" title="Przesuń niżej">↓</button></span>' +
-            '<button type="button" class="mdr-legacy-hidden" style="' + buttonStyle + full + '"></button>' +
-            '<button type="button" class="mdr-legacy-restore" style="' + buttonStyle + full + '">Odkryj wszystkie</button>' +
-            '<button type="button" class="mdr-legacy-reset" style="' + buttonStyle + full + '">Resetuj kolejność</button>';
-        select.insertAdjacentElement('afterend', panel);
-
-        const custom = panel.querySelector('.mdr-legacy-custom');
-        const sort = panel.querySelector('.mdr-legacy-sort');
-        custom.checked = legacyPrefs.custom === true;
-        sort.value = legacySort;
-        custom.addEventListener('change', () => {
-            legacyPrefs.custom = custom.checked;
-            if (custom.checked && !legacyOrder.length) legacyOrder.push(...[...select.options].map(legacyOptionKey));
-            arrangeLegacyOptions(select);
-            saveLegacy(); updateLegacyPanel(select);
-        });
-        sort.addEventListener('change', () => {
-            legacySort = sort.value;
-            if (custom.checked) { custom.checked = false; legacyPrefs.custom = false; }
-            arrangeLegacyOptions(select); saveLegacy(); updateLegacyPanel(select);
-        });
-        panel.querySelector('.mdr-legacy-favorite').addEventListener('click', () => {
-            const option = select.selectedOptions[0];
-            if (!option) return;
-            const key = legacyOptionKey(option);
-            legacySelectFavorite = legacySelectFavorite === key ? null : key;
-            saveLegacy(); updateLegacyPanel(select);
-        });
-        panel.querySelector('.mdr-legacy-hide').addEventListener('click', () => {
-            const option = select.selectedOptions[0];
-            if (!option) return;
-            const key = legacyOptionKey(option);
-            if (legacyHidden.has(key)) legacyHidden.delete(key); else legacyHidden.add(key);
-            applyLegacyHidden(select); saveLegacy(); updateLegacyPanel(select);
-        });
-        panel.querySelector('.mdr-legacy-hidden').addEventListener('click', () => {
-            legacyShowHidden = !legacyShowHidden;
-            applyLegacyHidden(select); updateLegacyPanel(select);
-        });
-        panel.querySelector('.mdr-legacy-restore').addEventListener('click', () => {
-            legacyHidden.clear(); legacyShowHidden = false;
-            applyLegacyHidden(select); saveLegacy(); updateLegacyPanel(select);
-        });
-        const move = (offset) => {
-            if (!legacyPrefs.custom) return;
-            const option = select.selectedOptions[0];
-            if (!option) return;
-            const parent = option.parentElement;
-            const siblings = [...parent.children].filter((child) => child.tagName === 'OPTION' && !child.hidden);
-            const index = siblings.indexOf(option);
-            const target = siblings[index + offset];
-            if (target) parent.insertBefore(option, offset < 0 ? target : target.nextSibling);
-            else if (parent.tagName === 'OPTGROUP' && siblings.length === 1) {
-                const groups = [...select.children].filter((child) => child.tagName === 'OPTGROUP');
-                const groupIndex = groups.indexOf(parent);
-                const targetGroup = groups[groupIndex + offset];
-                if (!targetGroup) return;
-                select.insertBefore(parent, offset < 0 ? targetGroup : targetGroup.nextSibling);
-            } else return;
-            legacyOrder.splice(0, legacyOrder.length, ...[...select.options].map(legacyOptionKey));
-            select.selectedIndex = [...select.options].indexOf(option);
-            saveLegacy(); updateLegacyPanel(select);
-        };
-        panel.querySelector('.mdr-legacy-up').addEventListener('click', () => move(-1));
-        panel.querySelector('.mdr-legacy-down').addEventListener('click', () => move(1));
-        panel.querySelector('.mdr-legacy-reset').addEventListener('click', () => {
-            legacyOrder.length = 0;
-            legacyPrefs.custom = false;
-            custom.checked = false;
-            arrangeLegacyOptions(select);
-            saveLegacy();
-            updateLegacyPanel(select);
-        });
-        select.addEventListener('change', () => updateLegacyPanel(select));
-        return panel;
+        let gear = host.querySelector(':scope > .mdr-legacy-gear');
+        if (!gear) {
+            gear = document.createElement('button'); gear.type = 'button'; gear.className = 'mdr-legacy-gear';
+            gear.textContent = '⚙'; gear.title = 'Ustawienia listy postaci'; gear.setAttribute('aria-label', gear.title);
+            gear.addEventListener('click', () => {
+                legacyDialogOpen = !legacyDialogOpen;
+                legacyDialog.hidden = !legacyDialogOpen;
+                if (legacyDialogOpen) renderLegacyDialog(select);
+            });
+            select.insertAdjacentElement('afterend', gear);
+        }
+        if (!legacyDialog) {
+            const style = document.createElement('style');
+            style.textContent = `
+                .mdr-legacy-gear{margin:3px 0 0 5px;padding:3px 7px;cursor:pointer;color:#ffe7a0;background:linear-gradient(#8a4c28,#542817);border:1px solid #593a22;border-radius:4px;font:16px Arial,sans-serif;vertical-align:middle}
+                .mdr-legacy-dialog[hidden]{display:none!important}.mdr-legacy-dialog{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.74);font:14px Arial,sans-serif;color:#f4e4bf}
+                .mdr-legacy-box{width:min(720px,96vw);max-height:88vh;display:flex;flex-direction:column;background:#302015;border:2px solid #9c7445;border-radius:9px;box-shadow:0 14px 50px #000;padding:16px;box-sizing:border-box}
+                .mdr-legacy-top{display:flex;align-items:center;gap:12px;border-bottom:1px solid #8e6b43;padding-bottom:12px}.mdr-legacy-top h2{margin:0 auto 0 0;color:#ffe7a0;font-size:20px}
+                .mdr-legacy-sort{padding:6px;max-width:210px}.mdr-legacy-list{overflow:auto;padding:12px 4px;display:flex;flex-direction:column;gap:10px}
+                .mdr-legacy-world{border:1px solid #76542f;border-radius:6px;background:rgba(255,230,180,.06);padding:8px}.mdr-legacy-world-head{display:flex;align-items:center;justify-content:space-between;padding:2px 3px 7px;border-bottom:1px solid #65472c;cursor:grab;color:#ffe7a0;font-size:16px}
+                .mdr-legacy-characters{display:flex;flex-direction:column;gap:4px;padding-top:6px}.mdr-legacy-character{display:flex;align-items:center;gap:8px;min-height:34px;padding:4px 5px;background:rgba(0,0,0,.2);border-radius:4px;cursor:grab}.mdr-legacy-character.is-hidden{opacity:.48}
+                .mdr-legacy-select{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:none;border:0;color:inherit;cursor:pointer;font:inherit}.mdr-legacy-actions{display:flex;gap:3px;flex-shrink:0}
+                .mdr-legacy-button{min-width:29px;min-height:27px;cursor:pointer;color:#ffe7a0;background:linear-gradient(#8a4c28,#542817);border:1px solid #654326;border-radius:4px;font:13px Arial,sans-serif}
+                .mdr-legacy-bottom{display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #8e6b43;padding-top:11px}.mdr-legacy-bottom button{padding:7px 11px}
+                @media(max-width:520px){.mdr-legacy-box{padding:10px}.mdr-legacy-top{flex-wrap:wrap}.mdr-legacy-top h2{width:70%}.mdr-legacy-character{align-items:flex-start}.mdr-legacy-actions{flex-wrap:wrap;justify-content:flex-end;max-width:128px}}
+            `;
+            document.head.appendChild(style);
+            legacyDialog = document.createElement('div'); legacyDialog.className = 'mdr-legacy-dialog'; legacyDialog.hidden = true;
+            const box = document.createElement('div'); box.className = 'mdr-legacy-box';
+            box.innerHTML = '<div class="mdr-legacy-top"><h2>Ustawienia postaci</h2><label>Sortuj w światach <select class="mdr-legacy-sort"><option value="default">Kolejność własna</option><option value="name-asc">Nazwa A–Z</option><option value="name-desc">Nazwa Z–A</option><option value="level-asc">Poziom rosnąco</option><option value="level-desc">Poziom malejąco</option></select></label><button type="button" class="mdr-legacy-button mdr-legacy-close" aria-label="Zamknij">✕</button></div><div class="mdr-legacy-list"></div><div class="mdr-legacy-bottom"><button type="button" class="mdr-legacy-button mdr-legacy-hidden"></button><button type="button" class="mdr-legacy-button mdr-legacy-restore">Odkryj wszystkie</button><button type="button" class="mdr-legacy-button mdr-legacy-reset">Resetuj kolejność</button></div>';
+            legacyDialog.appendChild(box); document.body.appendChild(legacyDialog);
+            legacyDialog.querySelector('.mdr-legacy-hidden').textContent = 'Pokaż ukryte';
+            legacyDialog.querySelector('.mdr-legacy-close').addEventListener('click', () => { legacyDialogOpen = false; legacyDialog.hidden = true; });
+            legacyDialog.addEventListener('click', (event) => { if (event.target === legacyDialog) { legacyDialogOpen = false; legacyDialog.hidden = true; } });
+            legacyDialog.querySelector('.mdr-legacy-sort').addEventListener('change', (event) => { legacySort = event.target.value; applyLegacyOrder(select); renderLegacyDialog(select); });
+            legacyDialog.querySelector('.mdr-legacy-hidden').addEventListener('click', (event) => {
+                legacyShowHidden = !legacyShowHidden; applyLegacyHidden(select);
+                event.currentTarget.textContent = legacyShowHidden ? 'Schowaj ukryte' : 'Pokaż ukryte';
+                renderLegacyDialog(select);
+            });
+            legacyDialog.querySelector('.mdr-legacy-restore').addEventListener('click', () => {
+                legacyHidden.clear(); legacyShowHidden = false; applyLegacyHidden(select); saveLegacy(); renderLegacyDialog(select);
+                legacyDialog.querySelector('.mdr-legacy-hidden').textContent = 'Pokaż ukryte';
+            });
+            legacyDialog.querySelector('.mdr-legacy-reset').addEventListener('click', () => {
+                legacyPrefs.groupOrder = legacyGroups(select).map((group) => group.label || '?');
+                legacyPrefs.characterOrder = {};
+                legacyGroups(select).forEach((group) => { const world = group.label || '?'; legacyPrefs.characterOrder[world] = (group._loose ? group.children : [...group.children]).filter((option) => option.value !== '').map(legacyOptionKey); });
+                legacySort = 'default'; applyLegacyOrder(select); renderLegacyDialog(select);
+            });
+            document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && legacyDialogOpen) { legacyDialogOpen = false; legacyDialog.hidden = true; } });
+        }
+        legacySelect = select;
+        return gear;
     }
 
     function applyLegacyHidden(select) {
@@ -313,9 +372,12 @@
     function runLegacy() {
         const select = findLegacySelect();
         if (!select) return false;
-        bindLegacyRoster(select);
+        const rosterChanged = bindLegacyRoster(select);
         ensureLegacyPanel(select);
-        if (legacyArrangementKey !== currentLegacyArrangementKey()) arrangeLegacyOptions(select);
+        if (rosterChanged || !select.dataset.mdrOrdered) {
+            applyLegacyOrder(select);
+            select.dataset.mdrOrdered = '1';
+        }
         applyLegacyHidden(select);
         if (legacySelectFavorite && !legacyAutoSelected) {
             const favorite = [...select.options].find((option) => legacyOptionKey(option) === legacySelectFavorite);
@@ -325,7 +387,7 @@
                 select.dispatchEvent(new Event('change', { bubbles: true }));
             }
         }
-        updateLegacyPanel(select);
+        if (legacyDialogOpen) renderLegacyDialog(select);
         return true;
     }
 
