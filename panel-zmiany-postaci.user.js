@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.14
+// @version      1.15
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -24,8 +24,10 @@
         def: null                               // ulubiona postać bieżącego konta
     };
     const favoritesByRoster = GM_getValue('favoritesByRoster', {});
+    const pinnedByRoster = GM_getValue('pinnedByRoster', {});
     const legacyFavorite = GM_getValue('def', null);
     let activeRoster = null;
+    let pinnedCharacters = [];
     let showHidden = false;                     // tryb podglądu ukrytych (nie jest zapisywany)
     const save = () => {
         GM_setValue('hidden', cfg.hidden);
@@ -37,11 +39,26 @@
             if (cfg.def) favoritesByRoster[activeRoster] = cfg.def;
             else delete favoritesByRoster[activeRoster];
             GM_setValue('favoritesByRoster', favoritesByRoster);
+            pinnedByRoster[activeRoster] = pinnedCharacters;
+            GM_setValue('pinnedByRoster', pinnedByRoster);
         }
     };
 
     const TILE = '.charc[data-id]';
     const MAXI = Number.MAX_SAFE_INTEGER;
+    const pinStyle = document.createElement('style');
+    pinStyle.textContent = `
+        .mdr-quick-login{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:12px auto 0;max-width:100%;}
+        .mdr-quick-login[hidden]{display:none!important}
+        .mdr-quick-character{display:flex;align-items:center;gap:7px;min-width:116px;max-width:180px;min-height:54px;padding:4px 8px;border:1px solid rgba(235,215,170,.45);border-radius:5px;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+        .mdr-quick-character:hover,.mdr-quick-character:focus-visible{border-color:#ffe08a;box-shadow:0 0 0 1px rgba(255,224,138,.5);outline:none;}
+        .mdr-pin-portrait-wrap{display:flex;align-items:flex-start;justify-content:center;flex:0 0 34px;width:34px;height:34px;overflow:hidden;}
+        .mdr-pin-portrait{display:block;width:34px;height:68px;object-fit:cover;object-position:top center;}
+        .mdr-quick-label{display:flex;flex-direction:column;min-width:0;line-height:1.2;}
+        .mdr-quick-label strong,.mdr-quick-label small{max-width:125px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .mdr-quick-label strong{font-size:13px;}.mdr-quick-label small{font-size:11px;opacity:.8;}
+    `;
+    document.head.appendChild(pinStyle);
     let dragged = null;
     let groupHost = null;
     let timer = null;
@@ -613,6 +630,103 @@
         document.querySelectorAll(TILE).forEach(updateFavoriteButton);
     }
 
+    function characterName(tile) {
+        const named = tile.dataset.name || tile.getAttribute('data-name') ||
+            tile.querySelector('[class*="name"], [class*="nick"]')?.textContent.trim();
+        if (named) return named;
+        return (tile.innerText || tile.textContent || '').split(/\n+/).map((part) => part.trim()).find(Boolean) || tile.dataset.id;
+    }
+
+    function updatePinnedButtons() {
+        document.querySelectorAll(TILE).forEach((tile) => {
+            const button = tile._mdrPinBtn;
+            if (!button) return;
+            const pinned = pinnedCharacters.includes(tile.dataset.id);
+            button.textContent = pinned ? '📌' : '＋';
+            button.title = pinned ? 'Odepnij postać z szybkiego wejścia' : 'Przypnij do szybkiego wejścia';
+        });
+    }
+
+    function attachPinBtn(tile) {
+        if (tile._mdrPinBtn) return;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'mdr-pin';
+        button.style.cssText = 'position:absolute;top:24px;left:2px;z-index:6;min-width:20px;height:20px;padding:0;border:0;border-radius:3px;background:rgba(0,0,0,.6);color:#ffe18a;font-size:13px;line-height:20px;cursor:pointer;';
+        button.addEventListener('mousedown', (event) => event.stopPropagation());
+        button.addEventListener('mouseup', (event) => event.stopPropagation());
+        button.addEventListener('click', (event) => {
+            event.stopPropagation(); event.preventDefault();
+            if (!activeRoster) return;
+            const id = tile.dataset.id;
+            if (pinnedCharacters.includes(id)) pinnedCharacters = pinnedCharacters.filter((item) => item !== id);
+            else {
+                if (pinnedCharacters.length >= 9) { window.alert('Możesz przypiąć maksymalnie 9 postaci.'); return; }
+                pinnedCharacters = [...pinnedCharacters, id];
+            }
+            save(); renderPinnedCharacters([...document.querySelectorAll(TILE)]); updatePinnedButtons();
+        });
+        if (getComputedStyle(tile).position === 'static') tile.style.position = 'relative';
+        tile.appendChild(button); tile._mdrPinBtn = button; updatePinnedButtons();
+    }
+
+    function characterPortrait(tile) {
+        const img = tile.querySelector('img');
+        if (img?.src) {
+            const portrait = document.createElement('img');
+            portrait.src = img.currentSrc || img.src; portrait.alt = ''; portrait.className = 'mdr-pin-portrait';
+            return portrait;
+        }
+        const source = [tile, ...tile.querySelectorAll('*')].find((element) => getComputedStyle(element).backgroundImage !== 'none');
+        if (!source) return null;
+        const portrait = document.createElement('span'); portrait.className = 'mdr-pin-portrait';
+        portrait.style.backgroundImage = getComputedStyle(source).backgroundImage;
+        portrait.style.backgroundPosition = 'center top'; portrait.style.backgroundRepeat = 'no-repeat';
+        portrait.style.backgroundSize = getComputedStyle(source).backgroundSize;
+        return portrait;
+    }
+
+    function renderPinnedCharacters(tiles) {
+        if (!activeRoster) return;
+        const enter = document.querySelector('.info-container .enter-game');
+        if (!enter?.parentElement) return;
+        const tileById = new Map(tiles.map((tile) => [tile.dataset.id, tile]));
+        pinnedCharacters = pinnedCharacters.filter((id) => tileById.has(id)).slice(0, 9);
+        pinnedByRoster[activeRoster] = pinnedCharacters;
+        GM_setValue('pinnedByRoster', pinnedByRoster);
+        let panel = document.querySelector('.mdr-quick-login');
+        if (!panel) { panel = document.createElement('div'); panel.className = 'mdr-quick-login'; }
+        const parent = enter.closest('.info-container') || enter.parentElement;
+        if (panel.parentElement !== parent) parent.insertAdjacentElement('afterend', panel);
+        const signature = pinnedCharacters.map((id) => {
+            const tile = tileById.get(id); return `${id}:${characterName(tile)}:${worldOf(tile)}`;
+        }).join('|');
+        if (panel.dataset.signature === signature && panel.hidden === (pinnedCharacters.length === 0)) return;
+        panel.dataset.signature = signature;
+        panel.replaceChildren();
+        panel.hidden = pinnedCharacters.length === 0;
+        if (panel.hidden) return;
+        pinnedCharacters.forEach((id) => {
+            const tile = tileById.get(id); if (!tile) return;
+            const card = document.createElement('button'); card.type = 'button'; card.className = 'mdr-quick-character';
+            card.title = `Wejdź do gry postacią ${characterName(tile)} (${worldOf(tile)})`;
+            const crop = document.createElement('span'); crop.className = 'mdr-pin-portrait-wrap';
+            const portrait = characterPortrait(tile); if (portrait) crop.appendChild(portrait);
+            const label = document.createElement('span'); label.className = 'mdr-quick-label';
+            const name = document.createElement('strong'); name.textContent = characterName(tile);
+            const world = document.createElement('small'); world.textContent = worldOf(tile);
+            label.append(name, world); card.append(crop, label);
+            card.addEventListener('click', () => {
+                tile.click();
+                setTimeout(() => {
+                    const enterButton = document.querySelector('.info-container .enter-game');
+                    if (enterButton && !enterButton.disabled) enterButton.click();
+                }, 100);
+            });
+            panel.appendChild(card);
+        });
+    }
+
     // Używamy pełnej listy ID postaci jako identyfikatora konta. Dzięki temu
     // nie zależymy od tego, czy Margonem udostępnia nazwę zalogowanego konta w DOM.
     function bindRoster(tiles) {
@@ -622,6 +736,7 @@
         if (activeRoster === roster) return;
         activeRoster = roster;
         cfg.def = favoritesByRoster[roster] || null;
+        pinnedCharacters = (pinnedByRoster[roster] || []).filter((id) => ids.includes(id)).slice(0, 9);
         // Jednorazowa migracja wyboru z poprzedniej wersji skryptu.
         if (!cfg.def && legacyFavorite && ids.includes(legacyFavorite)) {
             cfg.def = legacyFavorite;
@@ -630,6 +745,7 @@
         }
         favoriteAutoSelected = false;
         updateFavoriteButtons();
+        updatePinnedButtons();
     }
 
     function autoSelectFavorite(tiles) {
@@ -678,9 +794,11 @@
             if (!t.closest('.mdr-groups')) t._mdrOrigin = t.parentElement;
             attachDnD(t);
             attachFavoriteBtn(t);
+            attachPinBtn(t);
         });
         autoSelectFavorite(tiles);
         applyHidden(tiles);
+        renderPinnedCharacters(tiles);
 
         const origins = [...new Set(tiles.map((t) => t._mdrOrigin).filter((o) => o && o.isConnected))];
         let host = null;
