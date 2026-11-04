@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.8
+// @version      1.9
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -83,6 +83,11 @@
         return [legacyOptionWorld(option), option.value || option.textContent.trim()].join('::');
     }
 
+    function legacyOptionLevel(option) {
+        const match = option.textContent.match(/\(\s*(\d+)\s*[a-ząćęłńóśźż]*\s*\)/i);
+        return match ? Number(match[1]) : Number.NaN;
+    }
+
     function currentLegacyArrangementKey() {
         return [legacyRoster, legacyPrefs.custom === true, legacyGroup, legacySort, legacyOrder.join('|')].join('::');
     }
@@ -124,6 +129,12 @@
                 const ai = legacyOrder.indexOf(legacyOptionKey(a));
                 const bi = legacyOrder.indexOf(legacyOptionKey(b));
                 if (ai !== bi) return (ai < 0 ? Number.MAX_SAFE_INTEGER : ai) - (bi < 0 ? Number.MAX_SAFE_INTEGER : bi);
+            }
+            if (legacySort === 'level-asc' || legacySort === 'level-desc') {
+                const al = legacyOptionLevel(a);
+                const bl = legacyOptionLevel(b);
+                if (Number.isNaN(al) !== Number.isNaN(bl)) return Number.isNaN(al) ? 1 : -1;
+                if (!Number.isNaN(al) && al !== bl) return legacySort === 'level-asc' ? al - bl : bl - al;
             }
             if (legacySort === 'name-asc') return a.textContent.localeCompare(b.textContent, 'pl');
             if (legacySort === 'name-desc') return b.textContent.localeCompare(a.textContent, 'pl');
@@ -200,7 +211,7 @@
         panel.innerHTML =
             '<label style="display:inline-flex;align-items:center;gap:3px;color:#ffe7a0"><input class="mdr-legacy-custom" type="checkbox">Własna kolejność</label>' +
             '<label style="display:inline-flex;align-items:center;gap:3px;color:#ffe7a0"><input class="mdr-legacy-group" type="checkbox">Rozdziel wg światów</label>' +
-            '<select class="mdr-legacy-sort" aria-label="Sortuj postacie" style="max-width:135px"><option value="default">Domyślna kolejność</option><option value="name-asc">Nazwy A–Z</option><option value="name-desc">Nazwy Z–A</option></select>' +
+            '<select class="mdr-legacy-sort" aria-label="Sortuj postacie" style="max-width:155px"><option value="default">Domyślna kolejność</option><option value="name-asc">Nazwy A–Z</option><option value="name-desc">Nazwy Z–A</option><option value="level-asc">Poziom rosnąco</option><option value="level-desc">Poziom malejąco</option></select>' +
             '<span style="display:flex;flex-wrap:wrap;gap:4px;width:100%">' +
             '<button type="button" class="mdr-legacy-favorite" style="' + buttonStyle + '">☆ Ustaw ulubioną</button>' +
             '<button type="button" class="mdr-legacy-hide" style="' + buttonStyle + '">Ukryj wybraną</button>' +
