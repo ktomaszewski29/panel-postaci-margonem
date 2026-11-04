@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.13
+// @version      1.14
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -326,6 +326,7 @@
         if (!legacyDialog) {
             const style = document.createElement('style');
             style.textContent = `
+                .mdr-legacy-config::before{content:"· ";}
                 .mdr-legacy-dialog[hidden]{display:none!important}.mdr-legacy-dialog{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.74);font:14px Arial,sans-serif;color:#f4e4bf}
                 .mdr-legacy-box{width:min(720px,96vw);max-height:88vh;display:flex;flex-direction:column;background:#302015;border:2px solid #9c7445;border-radius:9px;box-shadow:0 14px 50px #000;padding:16px;box-sizing:border-box}
                 .mdr-legacy-top{display:flex;align-items:center;gap:12px;border-bottom:1px solid #8e6b43;padding-bottom:12px}.mdr-legacy-top h2{margin:0 auto 0 0;color:#ffe7a0;font-size:20px}
