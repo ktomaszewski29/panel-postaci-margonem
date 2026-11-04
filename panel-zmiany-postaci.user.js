@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.15
+// @version      1.17
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -317,27 +317,46 @@
         const host = select.parentElement;
         host.querySelectorAll(':scope > .mdr-legacy-gear, :scope > .mdr-legacy-panel').forEach((node) => node.remove());
         let configButton = document.querySelector('.mdr-legacy-config');
-        if (!configButton) {
-            const configLink = [...document.querySelectorAll('a[href]')].find((link) => {
-                try { return new URL(link.href, location.href).pathname.replace(/\/$/, '') === '/config'; }
-                catch (_) { return false; }
-            });
-            if (configLink) {
-                const parent = configLink.parentElement?.tagName === 'LI' ? configLink.parentElement : null;
-                const item = parent ? parent.cloneNode(true) : null;
-                configButton = item ? item.querySelector('a') : configLink.cloneNode(false);
-                configButton.classList.add('mdr-legacy-config');
-                configButton.href = '#';
+        // Nie kotwicz przycisku do dowolnego linku /config: na starej stronie
+        // link w banerze zaproszenia na świat prywatny też prowadzi do /config.
+        // Zakotwicz go względem stałej pozycji w sekcji Narzędzia.
+        const quickLoadLink = [...document.querySelectorAll('a')].find((link) =>
+            /szybsze\s+ładowanie\s+gry/i.test(link.textContent.trim())
+        );
+        if (quickLoadLink) {
+            const quickLoadItem = quickLoadLink.closest('li') || quickLoadLink;
+            const currentItem = configButton?.closest('li') || configButton;
+            const alreadyInTools = configButton && currentItem.parentElement === quickLoadItem.parentElement && currentItem.nextElementSibling === quickLoadItem;
+            if (configButton && !alreadyInTools) {
+                // Usuń wyłącznie nasz link z banera/komunikatu; nie przenoś
+                // jego kontenera, bo zawiera też tekst strony.
+                const oldItem = configButton.closest('li');
+                configButton.remove();
+                if (oldItem && !oldItem.textContent.trim() && !oldItem.querySelector('*')) oldItem.remove();
+                configButton = null;
+            }
+            if (!configButton) {
+                const item = quickLoadItem.cloneNode(true);
+                configButton = item.matches('a') ? item : item.querySelector('a');
+                if (configButton) {
+                    configButton.classList.add('mdr-legacy-config');
+                    configButton.href = '#';
+                    configButton.textContent = 'Konfiguracja logowania';
+                    configButton.removeAttribute('target');
+                    configButton.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        legacyDialogOpen = !legacyDialogOpen;
+                        legacyDialog.hidden = !legacyDialogOpen;
+                        if (legacyDialogOpen) renderLegacyDialog(legacySelect);
+                    });
+                }
+            }
+            if (configButton) {
                 configButton.textContent = 'Konfiguracja logowania';
+                configButton.href = '#';
                 configButton.removeAttribute('target');
-                configButton.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    legacyDialogOpen = !legacyDialogOpen;
-                    legacyDialog.hidden = !legacyDialogOpen;
-                    if (legacyDialogOpen) renderLegacyDialog(legacySelect);
-                });
-                if (item) configLink.parentElement.insertAdjacentElement('afterend', item);
-                else configLink.insertAdjacentElement('afterend', configButton);
+                const configItem = configButton.closest('li') || configButton;
+                if (configItem.parentElement !== quickLoadItem.parentElement) quickLoadItem.parentElement.insertBefore(configItem, quickLoadItem);
             }
         }
         if (!legacyDialog) {
@@ -737,6 +756,18 @@
         activeRoster = roster;
         cfg.def = favoritesByRoster[roster] || null;
         pinnedCharacters = (pinnedByRoster[roster] || []).filter((id) => ids.includes(id)).slice(0, 9);
+        // Po dodaniu postaci pełny skład ma nowy klucz. Odzyskaj przypięcia
+        // z poprzedniego składu, jeżeli wszystkie jego ID nadal należą do konta.
+        if (!pinnedCharacters.length) {
+            const previousRoster = Object.entries(pinnedByRoster)
+                .map(([key, pins]) => ({ key, ids: key.split(',').filter(Boolean), pins: Array.isArray(pins) ? pins : [] }))
+                .filter((entry) => entry.ids.length && entry.ids.length < ids.length &&
+                    entry.ids.every((id) => ids.includes(id)) && entry.pins.some((id) => ids.includes(id)))
+                .sort((a, b) => b.ids.length - a.ids.length)[0];
+            if (previousRoster) pinnedCharacters = previousRoster.pins.filter((id) => ids.includes(id)).slice(0, 9);
+        }
+        pinnedByRoster[roster] = pinnedCharacters;
+        GM_setValue('pinnedByRoster', pinnedByRoster);
         // Jednorazowa migracja wyboru z poprzedniej wersji skryptu.
         if (!cfg.def && legacyFavorite && ids.includes(legacyFavorite)) {
             cfg.def = legacyFavorite;
