@@ -80,7 +80,7 @@
   <div class="wrap">
     <header class="top">
       <div class="mark" aria-hidden="true">M</div>
-      <div class="title-wrap"><div class="kicker">Dodatek do Margonem</div><h1>Panel zmiany postaci</h1><span class="version">wersja 1.12</span></div>
+      <div class="title-wrap"><div class="kicker">Dodatek do Margonem</div><h1>Panel zmiany postaci</h1><span class="version">wersja 1.13</span></div>
     </header>
     <p class="lead">Userscript do porządkowania ekranu wyboru postaci na nowej i klasycznej stronie Margonem. Ustaw kolejność, ukryj nieużywane postacie i wybierz ulubioną postać.</p>
     <div class="download">
@@ -99,7 +99,7 @@
         <li>Pozwala ukrywać postacie, podejrzeć ukryte i odkryć je wszystkie jednym przyciskiem.</li>
         <li>Po pojawieniu się listy po zalogowaniu wybiera ulubioną postać przez zwykłą obsługę strony Margonem.</li>
         <li>Automatycznie zamyka komunikat o nieustawionym adresie e-mail. Ponawia próbę, jeśli strona jeszcze nie obsługuje kliknięcia X.</li>
-        <li>Na klasycznej stronie pozwala ustawić ulubioną postać, ukrywać i odkrywać postacie, sortować po nazwie lub poziomie oraz zmieniać własną kolejność przyciskami ↑ i ↓. Zachowuje natywne grupy światów strony.</li>
+        <li>Na klasycznej stronie przycisk „Konfiguracja logowania” w sekcji „Narzędzia” otwiera listę do układania postaci i światów. Sortowanie działa wewnątrz światów; ukryte postacie nie pozostawiają pustych nagłówków grup.</li>
       </ul>
     </section>
 
@@ -125,14 +125,14 @@
     <section id="obsluga">
       <h2>Ustawienia i przyciski</h2>
       <div class="tabela"><table><thead><tr><th>Opcja</th><th>Jak działa</th></tr></thead><tbody>
-        <tr><td><strong>Własna kolejność</strong></td><td>W nowym panelu przeciągaj kafelki. Na klasycznej stronie kliknij zębatkę, a następnie przeciągaj postacie i całe grupy światów w oknie ustawień.</td></tr>
+        <tr><td><strong>Konfiguracja logowania</strong></td><td>Na klasycznej stronie znajdziesz ten przycisk w sekcji „Narzędzia”. Otwiera listę, na której można przeciągać postacie i całe grupy światów.</td></tr>
         <tr><td><strong>Rozdziel wg światów</strong></td><td>W nowym panelu włącza osobne grupy postaci. Klasyczny widok zachowuje natywne grupy Margonem i nie dodaje tego przełącznika.</td></tr>
         <tr><td><strong>Pokaż ukryte</strong></td><td>Pokazuje ukryte kafelki w trybie podglądu. Kliknij ↺ przy postaci, aby ją przywrócić.</td></tr>
         <tr><td><strong>Odkryj wszystkie</strong></td><td>Natychmiast usuwa wszystkie postacie z listy ukrytych.</td></tr>
         <tr><td><strong>✕ / ↺ na kafelku</strong></td><td>✕ ukrywa postać, a ↺ przywraca ją po włączeniu podglądu ukrytych.</td></tr>
         <tr><td><strong>☆ / ★ na kafelku</strong></td><td>Ustawia albo odznacza ulubioną postać.</td></tr>
         <tr><td><strong>Resetuj kolejność</strong></td><td>Usuwa własną kolejność i wyłącza jej używanie. Nie kasuje ulubionej ani ukrytych postaci.</td></tr>
-        <tr><td><strong>Klasyczny widok strony</strong></td><td>Kliknij zębatkę, aby otworzyć kopię natywnej listy. Przeciągaj postacie w obrębie świata i całe sekcje światów. Sortowanie po nazwie lub poziomie działa wyłącznie wewnątrz grup. Zmiany kolejności zapisują się automatycznie.</td></tr>
+        <tr><td><strong>Klasyczny widok strony</strong></td><td>Przycisk „Konfiguracja logowania” znajduje się w sekcji „Narzędzia”. Przeciągaj postacie w obrębie świata i całe sekcje światów. Sortowanie po nazwie lub poziomie działa wyłącznie wewnątrz grup. Puste grupy znikają również z natywnej listy po ukryciu wszystkich postaci danego świata.</td></tr>
       </tbody></table></div>
     </section>
 
@@ -163,7 +163,7 @@
       <details><summary>Jak zaktualizować skrypt?</summary><p>Od wersji 1.6 skrypt pobiera aktualizacje z GitHuba. W Tampermonkey wybierz „Check for userscript updates”, a jeśli aktualizacja wymaga zatwierdzenia, zaakceptuj ją. Wersja 5.5 i nowsza może wymagać włączenia opcji „Automatic installation”, aby instalować aktualizacje bez potwierdzeń. Po aktualizacji odśwież Margonem. Wersję 1.5 lub starszą zaktualizuj jednorazowo przyciskiem instalacji na górze tej strony.</p></details>
     </section>
 
-    <footer>Instrukcja do userscriptu „Margonem – panel zmiany postaci” · wersja 1.12</footer>
+    <footer>Instrukcja do userscriptu „Margonem – panel zmiany postaci” · wersja 1.13</footer>
   </div>
 </body>
 </html>

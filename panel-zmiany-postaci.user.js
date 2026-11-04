@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.12
+// @version      1.13
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -296,22 +296,36 @@
     }
 
     function ensureLegacyPanel(select) {
+        legacySelect = select;
         const host = select.parentElement;
-        let gear = host.querySelector(':scope > .mdr-legacy-gear');
-        if (!gear) {
-            gear = document.createElement('button'); gear.type = 'button'; gear.className = 'mdr-legacy-gear';
-            gear.textContent = '⚙'; gear.title = 'Ustawienia listy postaci'; gear.setAttribute('aria-label', gear.title);
-            gear.addEventListener('click', () => {
-                legacyDialogOpen = !legacyDialogOpen;
-                legacyDialog.hidden = !legacyDialogOpen;
-                if (legacyDialogOpen) renderLegacyDialog(select);
+        host.querySelectorAll(':scope > .mdr-legacy-gear, :scope > .mdr-legacy-panel').forEach((node) => node.remove());
+        let configButton = document.querySelector('.mdr-legacy-config');
+        if (!configButton) {
+            const configLink = [...document.querySelectorAll('a[href]')].find((link) => {
+                try { return new URL(link.href, location.href).pathname.replace(/\/$/, '') === '/config'; }
+                catch (_) { return false; }
             });
-            select.insertAdjacentElement('afterend', gear);
+            if (configLink) {
+                const parent = configLink.parentElement?.tagName === 'LI' ? configLink.parentElement : null;
+                const item = parent ? parent.cloneNode(true) : null;
+                configButton = item ? item.querySelector('a') : configLink.cloneNode(false);
+                configButton.classList.add('mdr-legacy-config');
+                configButton.href = '#';
+                configButton.textContent = 'Konfiguracja logowania';
+                configButton.removeAttribute('target');
+                configButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    legacyDialogOpen = !legacyDialogOpen;
+                    legacyDialog.hidden = !legacyDialogOpen;
+                    if (legacyDialogOpen) renderLegacyDialog(legacySelect);
+                });
+                if (item) configLink.parentElement.insertAdjacentElement('afterend', item);
+                else configLink.insertAdjacentElement('afterend', configButton);
+            }
         }
         if (!legacyDialog) {
             const style = document.createElement('style');
             style.textContent = `
-                .mdr-legacy-gear{margin:3px 0 0 5px;padding:3px 7px;cursor:pointer;color:#ffe7a0;background:linear-gradient(#8a4c28,#542817);border:1px solid #593a22;border-radius:4px;font:16px Arial,sans-serif;vertical-align:middle}
                 .mdr-legacy-dialog[hidden]{display:none!important}.mdr-legacy-dialog{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.74);font:14px Arial,sans-serif;color:#f4e4bf}
                 .mdr-legacy-box{width:min(720px,96vw);max-height:88vh;display:flex;flex-direction:column;background:#302015;border:2px solid #9c7445;border-radius:9px;box-shadow:0 14px 50px #000;padding:16px;box-sizing:border-box}
                 .mdr-legacy-top{display:flex;align-items:center;gap:12px;border-bottom:1px solid #8e6b43;padding-bottom:12px}.mdr-legacy-top h2{margin:0 auto 0 0;color:#ffe7a0;font-size:20px}
@@ -350,7 +364,7 @@
             document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && legacyDialogOpen) { legacyDialogOpen = false; legacyDialog.hidden = true; } });
         }
         legacySelect = select;
-        return gear;
+        return configButton;
     }
 
     function applyLegacyHidden(select) {
@@ -359,6 +373,10 @@
             const hidden = legacyHidden.has(legacyOptionKey(option));
             option.hidden = hidden && !legacyShowHidden;
             if (hidden && option.selected && !legacyShowHidden) selectedWasHidden = true;
+        });
+        [...select.children].filter((child) => child.tagName === 'OPTGROUP').forEach((group) => {
+            const options = [...group.children].filter((child) => child.tagName === 'OPTION' && child.value !== '');
+            group.hidden = !legacyShowHidden && (options.length === 0 || options.every((option) => option.hidden));
         });
         if (selectedWasHidden) {
             const replacement = [...select.options].find((option) => option.value && !option.hidden);
