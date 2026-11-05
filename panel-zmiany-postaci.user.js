@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.18
+// @version      1.19
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -48,15 +48,18 @@
     const MAXI = Number.MAX_SAFE_INTEGER;
     const pinStyle = document.createElement('style');
     pinStyle.textContent = `
-        .mdr-quick-login{display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:7px;margin:8px auto 0;padding:3px 3px 7px;max-width:100%;width:100%;box-sizing:border-box;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;}
+        .mdr-login-actions{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;width:100%;box-sizing:border-box;}
+        .mdr-login-actions>.enter-game,.mdr-login-actions>.mdr-login-as{margin:0!important;}
+        .mdr-quick-login{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:center;gap:7px;margin:8px auto 0;padding:3px 3px 7px;max-width:390px;width:100%;box-sizing:border-box;}
         .mdr-quick-login[hidden]{display:none!important}
-        .mdr-quick-character{display:flex;align-items:center;gap:6px;flex:0 0 112px;width:112px;min-width:112px;max-width:112px;height:48px;min-height:48px;padding:3px 6px;border:1px solid rgba(235,215,170,.45);border-radius:5px;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-sizing:border-box;}
+        .mdr-quick-character{display:flex;align-items:center;gap:6px;width:100%;min-width:0;height:48px;min-height:48px;padding:3px 6px;border:1px solid rgba(235,215,170,.45);border-radius:5px;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-sizing:border-box;}
         .mdr-quick-character:hover,.mdr-quick-character:focus-visible{border-color:#ffe08a;box-shadow:0 0 0 1px rgba(255,224,138,.5);outline:none;}
         .mdr-pin-portrait-wrap{display:flex;align-items:flex-start;justify-content:center;flex:0 0 28px;width:28px;height:28px;overflow:hidden;}
         .mdr-pin-portrait{display:block;width:28px;height:56px;object-fit:cover;object-position:top center;}
         .mdr-quick-label{display:flex;flex-direction:column;min-width:0;line-height:1.2;}
-        .mdr-quick-label strong,.mdr-quick-label small{max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .mdr-quick-label strong,.mdr-quick-label small{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .mdr-quick-label strong{font-size:13px;}.mdr-quick-label small{font-size:11px;opacity:.8;}
+        @media(max-width:520px){.mdr-login-actions{gap:7px}.mdr-quick-login{gap:5px}.mdr-quick-character{gap:4px;padding-inline:4px}.mdr-pin-portrait-wrap,.mdr-pin-portrait{width:24px}.mdr-pin-portrait-wrap{flex-basis:24px}.mdr-quick-label strong{font-size:11px}.mdr-quick-label small{font-size:10px}}
     `;
     document.head.appendChild(pinStyle);
     let dragged = null;
@@ -706,10 +709,42 @@
         return portrait;
     }
 
+    function arrangeQuickLoginActions(enter) {
+        const info = enter.closest('.info-container');
+        if (!info) return;
+
+        // Separator „LUB” niepotrzebnie zajmuje pionowe miejsce po przeniesieniu
+        // przycisku logowania zastępcy do wspólnego rzędu z wejściem do gry.
+        const loginRoot = enter.closest('.login-box, .login-container, [class*="login"]') || document;
+        [...loginRoot.querySelectorAll('*')].forEach((element) => {
+            if (element.dataset.mdrHiddenAlternative === '1') return;
+            if ((element.textContent || '').trim().toLocaleLowerCase('pl') !== 'lub') return;
+            element.dataset.mdrHiddenAlternative = '1';
+            element.hidden = true;
+        });
+
+        const candidates = [...loginRoot.querySelectorAll('button, a, .c-btn, [role="button"]')];
+        const loginAs = candidates.find((element) => element !== enter &&
+            /^zaloguj jako\b/i.test((element.textContent || '').replace(/\s+/g, ' ').trim()));
+
+        let actions = info.querySelector(':scope > .mdr-login-actions');
+        if (!actions) {
+            actions = document.createElement('div');
+            actions.className = 'mdr-login-actions';
+            info.appendChild(actions);
+        }
+        if (enter.parentElement !== actions) actions.appendChild(enter);
+        if (loginAs) {
+            loginAs.classList.add('mdr-login-as');
+            if (loginAs.parentElement !== actions) actions.appendChild(loginAs);
+        }
+    }
+
     function renderPinnedCharacters(tiles) {
         if (!activeRoster) return;
         const enter = document.querySelector('.info-container .enter-game');
         if (!enter?.parentElement) return;
+        arrangeQuickLoginActions(enter);
         const tileById = new Map(tiles.map((tile) => [tile.dataset.id, tile]));
         pinnedCharacters = pinnedCharacters.filter((id) => tileById.has(id)).slice(0, 9);
         pinnedByRoster[activeRoster] = pinnedCharacters;
