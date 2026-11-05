@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.23
+// @version      1.24
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -51,6 +51,10 @@
         .mdr-login-actions{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;width:100%;box-sizing:border-box;}
         .mdr-login-actions>.enter-game,.mdr-login-actions>.mdr-login-as{margin:0!important;}
         .mdr-quick-login{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:center;align-content:center;gap:6px;margin:16px auto 0;padding:0 3px;position:relative;transform:translateY(var(--mdr-quick-offset,0px));max-width:390px;width:100%;box-sizing:border-box;}
+        .mdr-quick-login[data-count="1"]>.mdr-quick-character{grid-column:2;}
+        .mdr-quick-login[data-count="2"]{grid-template-columns:repeat(6,minmax(0,1fr));column-gap:3px;}
+        .mdr-quick-login[data-count="2"]>.mdr-quick-character:first-child{grid-column:2 / span 2;}
+        .mdr-quick-login[data-count="2"]>.mdr-quick-character:last-child{grid-column:4 / span 2;}
         .mdr-quick-login[hidden]{display:none!important}
         .mdr-quick-character{display:flex;align-items:center;gap:5px;width:100%;min-width:0;height:34px;min-height:34px;padding:2px 5px;border:1px solid rgba(235,215,170,.45);border-radius:5px;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-sizing:border-box;}
         .mdr-quick-character:hover,.mdr-quick-character:focus-visible{border-color:#ffe08a;box-shadow:0 0 0 1px rgba(255,224,138,.5);outline:none;}
@@ -508,6 +512,7 @@
             '<button type="button" class="mdr-show" style="' + btnCss + '"></button>' +
             '<button type="button" class="mdr-restore-all" style="' + btnCss + '">Odkryj wszystkie</button>' +
             '<button type="button" class="mdr-reset" style="' + btnCss + '">Resetuj kolejność</button>' +
+            '<button type="button" class="mdr-unpin-all" style="' + btnCss + '">Odepnij wszystkie</button>' +
             '</span>';
         holder.insertAdjacentElement('afterend', panel);
         panel.querySelector('.mdr-show').addEventListener('click', () => {
@@ -519,6 +524,14 @@
             showHidden = false;
             save();
             refresh();
+        });
+
+        panel.querySelector('.mdr-unpin-all').addEventListener('click', () => {
+            if (!activeRoster) return;
+            pinnedCharacters = [];
+            save();
+            renderPinnedCharacters([...document.querySelectorAll(TILE)]);
+            updatePinnedButtons();
         });
 
         const cCustom = panel.querySelector('.mdr-custom');
@@ -601,7 +614,7 @@
         const b = document.createElement('span');
         b.className = 'mdr-hide';
         b.style.cssText =
-            'position:absolute;top:2px;right:2px;z-index:5;width:18px;height:18px;line-height:18px;' +
+            'position:absolute;top:2px;right:2px;z-index:5;width:20px;height:20px;line-height:20px;' +
             'text-align:center;font-size:12px;font-weight:bold;cursor:pointer;border-radius:3px;' +
             'background:rgba(0,0,0,.55);color:#fff;user-select:none;';
         const stop = (e) => { e.stopPropagation(); };
@@ -627,7 +640,7 @@
         const b = document.createElement('span');
         b.className = 'mdr-favorite';
         b.style.cssText =
-            'position:absolute;top:2px;left:2px;z-index:6;width:20px;height:20px;line-height:20px;' +
+            'position:absolute;top:2px;right:24px;z-index:6;width:20px;height:20px;line-height:20px;' +
             'text-align:center;font-size:17px;cursor:pointer;border-radius:3px;' +
             'background:rgba(0,0,0,.55);color:#ffd54a;user-select:none;';
         b.addEventListener('mousedown', (e) => e.stopPropagation());
@@ -665,6 +678,8 @@
     }
 
     function updatePinnedButtons() {
+        const unpinAll = document.querySelector('.mdr-unpin-all');
+        if (unpinAll) unpinAll.disabled = !pinnedCharacters.length;
         document.querySelectorAll(TILE).forEach((tile) => {
             const button = tile._mdrPinBtn;
             if (!button) return;
@@ -679,7 +694,7 @@
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'mdr-pin';
-        button.style.cssText = 'position:absolute;top:24px;left:2px;z-index:6;min-width:20px;height:20px;padding:0;border:0;border-radius:3px;background:rgba(0,0,0,.6);color:#ffe18a;font-size:13px;line-height:20px;cursor:pointer;';
+        button.style.cssText = 'position:absolute;top:2px;right:46px;z-index:6;width:20px;min-width:20px;height:20px;padding:0;border:0;border-radius:3px;background:rgba(0,0,0,.6);color:#ffe18a;font-size:13px;line-height:20px;cursor:pointer;';
         button.addEventListener('mousedown', (event) => event.stopPropagation());
         button.addEventListener('mouseup', (event) => event.stopPropagation());
         button.addEventListener('click', (event) => {
@@ -832,6 +847,7 @@
         if (parent.nextElementSibling !== panel) parent.insertAdjacentElement('afterend', panel);
         panel.parentElement?.classList.remove('mdr-login-panel-host');
         observeQuickLayout(panel, enter);
+        panel.dataset.count = String(pinnedCharacters.length);
         const signature = pinnedCharacters.map((id) => {
             const tile = tileById.get(id); return `${id}:${characterName(tile)}:${worldOf(tile)}`;
         }).join('|');
@@ -873,7 +889,8 @@
         pinnedCharacters = (pinnedByRoster[roster] || []).filter((id) => ids.includes(id)).slice(0, 9);
         // Po dodaniu postaci pełny skład ma nowy klucz. Odzyskaj przypięcia
         // z poprzedniego składu, jeżeli wszystkie jego ID nadal należą do konta.
-        if (!pinnedCharacters.length) {
+        // An explicitly saved empty list must stay empty after unpinning all.
+        if (!Object.prototype.hasOwnProperty.call(pinnedByRoster, roster)) {
             const previousRoster = Object.entries(pinnedByRoster)
                 .map(([key, pins]) => ({ key, ids: key.split(',').filter(Boolean), pins: Array.isArray(pins) ? pins : [] }))
                 .filter((entry) => entry.ids.length && entry.ids.length < ids.length &&
