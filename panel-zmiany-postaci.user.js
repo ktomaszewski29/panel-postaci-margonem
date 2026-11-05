@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.24
+// @version      1.27
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -15,29 +15,29 @@
 (function () {
     'use strict';
 
-    const cfg = {
-        custom: GM_getValue('custom', false),   // czy stosować własną kolejność
-        group: GM_getValue('group', false),     // czy rozdzielać wg światów
-        order: GM_getValue('order', []),        // lista id postaci w kolejności
-        sort: GM_getValue('sort', null),        // {value, text} wybranego sortowania
-        hidden: GM_getValue('hidden', []),      // id ukrytych postaci
-        def: null                               // ulubiona postać bieżącego konta
+    const preferences = {
+        custom: GM_getValue('custom', false),   // Whether to apply the saved custom order.
+        group: GM_getValue('group', false),     // Whether to group characters by world.
+        order: GM_getValue('order', []),        // Character IDs in the saved order.
+        sort: GM_getValue('sort', null),        // Selected sorting option as {value, text}.
+        hidden: GM_getValue('hidden', []),      // Hidden character IDs.
+        def: null                               // Favorite character of the active roster.
     };
     const favoritesByRoster = GM_getValue('favoritesByRoster', {});
     const pinnedByRoster = GM_getValue('pinnedByRoster', {});
     const legacyFavorite = GM_getValue('def', null);
     let activeRoster = null;
     let pinnedCharacters = [];
-    let showHidden = false;                     // tryb podglądu ukrytych (nie jest zapisywany)
+    let showHidden = false;                     // Temporary preview of hidden characters.
     const save = () => {
-        GM_setValue('hidden', cfg.hidden);
-        GM_setValue('custom', cfg.custom);
-        GM_setValue('group', cfg.group);
-        GM_setValue('order', cfg.order);
-        GM_setValue('sort', cfg.sort);
+        GM_setValue('hidden', preferences.hidden);
+        GM_setValue('custom', preferences.custom);
+        GM_setValue('group', preferences.group);
+        GM_setValue('order', preferences.order);
+        GM_setValue('sort', preferences.sort);
         if (activeRoster) {
-            if (cfg.def) favoritesByRoster[activeRoster] = cfg.def;
-            else delete favoritesByRoster[activeRoster];
+            if (preferences.def) favoritesByRoster[activeRoster] = preferences.def;
+            else favoritesByRoster[activeRoster] = null;
             GM_setValue('favoritesByRoster', favoritesByRoster);
             pinnedByRoster[activeRoster] = pinnedCharacters;
             GM_setValue('pinnedByRoster', pinnedByRoster);
@@ -45,30 +45,201 @@
     };
 
     const TILE = '.charc[data-id]';
-    const MAXI = Number.MAX_SAFE_INTEGER;
+    const LAST_POSITION = Number.MAX_SAFE_INTEGER;
     const pinStyle = document.createElement('style');
     pinStyle.textContent = `
-        .mdr-login-actions{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;width:100%;box-sizing:border-box;}
-        .mdr-login-actions>.enter-game,.mdr-login-actions>.mdr-login-as{margin:0!important;}
-        .mdr-quick-login{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:center;align-content:center;gap:6px;margin:16px auto 0;padding:0 3px;position:relative;transform:translateY(var(--mdr-quick-offset,0px));max-width:390px;width:100%;box-sizing:border-box;}
-        .mdr-quick-login[data-count="1"]>.mdr-quick-character{grid-column:2;}
-        .mdr-quick-login[data-count="2"]{grid-template-columns:repeat(6,minmax(0,1fr));column-gap:3px;}
-        .mdr-quick-login[data-count="2"]>.mdr-quick-character:first-child{grid-column:2 / span 2;}
-        .mdr-quick-login[data-count="2"]>.mdr-quick-character:last-child{grid-column:4 / span 2;}
-        .mdr-quick-login[hidden]{display:none!important}
-        .mdr-quick-character{display:flex;align-items:center;gap:5px;width:100%;min-width:0;height:34px;min-height:34px;padding:2px 5px;border:1px solid rgba(235,215,170,.45);border-radius:5px;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-sizing:border-box;}
-        .mdr-quick-character:hover,.mdr-quick-character:focus-visible{border-color:#ffe08a;box-shadow:0 0 0 1px rgba(255,224,138,.5);outline:none;}
-        .mdr-pin-portrait-wrap{display:flex;align-items:flex-start;justify-content:center;flex:0 0 30px;width:30px;height:28px;overflow:hidden;}
-        .mdr-pin-portrait{display:block;width:30px;height:44px;object-fit:contain;object-position:top center;}
-        .mdr-quick-label{display:flex;flex-direction:column;min-width:0;line-height:1.2;}
-        .mdr-quick-label strong,.mdr-quick-label small{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-        .mdr-quick-label strong{font-size:11px;}.mdr-quick-label small{font-size:9px;opacity:.8;}
-        .mdr-deputy-time{position:static!important;display:block!important;width:100%;max-width:100%!important;margin:0!important;text-align:left!important;font-size:13px!important;line-height:1.25!important;white-space:normal!important;box-sizing:border-box;}
-        .mdr-time-label{ text-align:left!important; }
-        .mdr-time-label .substitution-time{position:static!important;inset:auto!important;transform:none!important;margin:0!important;text-align:left!important;display:block!important;}
-        .mdr-time-label .substitution-time strong{position:static!important;display:inline!important;margin:0!important;}
-        .mdr-deputy-time-slot{display:block;flex:0 0 auto;width:100%;}
-        @media(max-width:520px){.mdr-login-actions{gap:7px}.mdr-quick-login{gap:5px}.mdr-quick-character{gap:3px;padding-inline:3px}.mdr-pin-portrait-wrap,.mdr-pin-portrait{width:26px}.mdr-pin-portrait-wrap{flex-basis:26px}.mdr-quick-label strong{font-size:10px}.mdr-quick-label small{font-size:8px}}
+        .mdr-panel [hidden] {
+            display: none !important;
+        }
+        .mdr-panel > .mdr-actions {
+            display: flex !important;
+            flex-direction: row !important;
+            flex: 0 0 auto;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
+            width: max-content;
+            max-width: calc(100vw - 80px);
+            box-sizing: border-box;
+        }
+        .mdr-panel > .mdr-actions > button {
+            flex: 0 0 auto !important;
+            width: auto !important;
+            margin: 0 !important;
+        }
+        .mdr-tile-tooltip {
+            position: fixed;
+            z-index: 2147483647;
+            max-width: calc(100vw - 16px);
+            padding: 6px 9px;
+            border: 1px solid #a68a58;
+            border-radius: 4px;
+            background: #20190f;
+            color: #ffe8b3;
+            font: 12px/1.4 Arial, sans-serif;
+            pointer-events: none;
+            box-sizing: border-box;
+        }
+        .mdr-tile-tooltip[hidden] { display: none !important; }
+
+        .mdr-login-actions {
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:12px;
+            flex-wrap:wrap;
+            width:100%;
+            box-sizing:border-box;
+        }
+        .mdr-login-actions>.enter-game,.mdr-login-actions>.mdr-login-as {
+            margin:0!important;
+        }
+        .mdr-quick-login {
+            display:grid;
+            grid-template-columns:repeat(3,minmax(0,1fr));
+            justify-content:center;
+            align-content:center;
+            gap:6px;
+            margin:16px auto 0;
+            padding:0 3px;
+            position:relative;
+            transform:translateY(var(--mdr-quick-offset,0px));
+            max-width:390px;
+            width:100%;
+            box-sizing:border-box;
+        }
+        .mdr-quick-login[data-count="1"]>.mdr-quick-character {
+            grid-column:2;
+        }
+        .mdr-quick-login[data-count="2"] {
+            grid-template-columns:repeat(6,minmax(0,1fr));
+            column-gap:3px;
+        }
+        .mdr-quick-login[data-count="2"]>.mdr-quick-character:first-child {
+            grid-column:2 / span 2;
+        }
+        .mdr-quick-login[data-count="2"]>.mdr-quick-character:last-child {
+            grid-column:4 / span 2;
+        }
+        .mdr-quick-login[hidden] {
+            display:none!important;
+        }
+        .mdr-quick-character {
+            display:flex;
+            align-items:center;
+            gap:5px;
+            width:100%;
+            min-width:0;
+            height:34px;
+            min-height:34px;
+            padding:2px 5px;
+            border:1px solid rgba(235,215,170,.45);
+            border-radius:5px;
+            background:transparent;
+            color:inherit;
+            text-align:left;
+            cursor:pointer;
+            transition:border-color .15s,box-shadow .15s;
+            box-sizing:border-box;
+        }
+        .mdr-quick-character:hover,.mdr-quick-character:focus-visible {
+            border-color:#ffe08a;
+            box-shadow:0 0 0 1px rgba(255,224,138,.5);
+            outline:none;
+        }
+        .mdr-pin-portrait-wrap {
+            display:flex;
+            align-items:flex-start;
+            justify-content:center;
+            flex:0 0 30px;
+            width:30px;
+            height:28px;
+            overflow:hidden;
+        }
+        .mdr-pin-portrait {
+            display:block;
+            width:30px;
+            height:44px;
+            object-fit:contain;
+            object-position:top center;
+        }
+        .mdr-quick-label {
+            display:flex;
+            flex-direction:column;
+            min-width:0;
+            line-height:1.2;
+        }
+        .mdr-quick-label strong,.mdr-quick-label small {
+            max-width:80px;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
+        }
+        .mdr-quick-label strong {
+            font-size:11px;
+        }
+        .mdr-quick-label small {
+            font-size:9px;
+            opacity:.8;
+        }
+        .mdr-deputy-time {
+            position:static!important;
+            display:block!important;
+            width:100%;
+            max-width:100%!important;
+            margin:0!important;
+            text-align:left!important;
+            font-size:13px!important;
+            line-height:1.25!important;
+            white-space:normal!important;
+            box-sizing:border-box;
+        }
+        .mdr-time-label {
+            text-align:left!important;
+        }
+        .mdr-time-label .substitution-time {
+            position:static!important;
+            inset:auto!important;
+            transform:none!important;
+            margin:0!important;
+            text-align:left!important;
+            display:block!important;
+        }
+        .mdr-time-label .substitution-time strong {
+            position:static!important;
+            display:inline!important;
+            margin:0!important;
+        }
+        .mdr-deputy-time-slot {
+            display:block;
+            flex:0 0 auto;
+            width:100%;
+        }
+        @media(max-width:520px) {
+            .mdr-login-actions {
+                gap:7px;
+            }
+            .mdr-quick-login {
+                gap:5px;
+            }
+            .mdr-quick-character {
+                gap:3px;
+                padding-inline:3px;
+            }
+            .mdr-pin-portrait-wrap,.mdr-pin-portrait {
+                width:26px;
+            }
+            .mdr-pin-portrait-wrap {
+                flex-basis:26px;
+            }
+            .mdr-quick-label strong {
+                font-size:10px;
+            }
+            .mdr-quick-label small {
+                font-size:8px;
+            }
+        }
     `;
     document.head.appendChild(pinStyle);
     let dragged = null;
@@ -76,9 +247,8 @@
     let timer = null;
     let favoriteAutoSelected = false;
 
-    // Klasyczna strona główna (np. motyw „stara strona główna”) używa
-    // natywnego selecta zamiast kafelków .charc. Trzymamy jej ustawienia
-    // osobno, aby nie mieszać ich z ustawieniami nowego panelu.
+    // The classic theme uses a native select instead of character tiles.
+    // Keep its preferences separate from the modern panel.
     const legacyPrefs = GM_getValue('legacyPrefs', {});
     const legacyHidden = new Set(legacyPrefs.hidden || []);
     let legacySort = legacyPrefs.sort || 'default';
@@ -139,12 +309,12 @@
                 legacyPrefs.characterOrder[world] = [...group.children].filter((option) => option.value !== '').map(legacyOptionKey);
             }
         });
-        // Migruj kolejność zapisaną przez wcześniejsze wydania do osobnych list światów i postaci.
+        // Migrate older flat ordering into world and character lists.
         if (Array.isArray(legacyPrefs.order) && legacyPrefs.order.length) {
             const flat = legacyPrefs.order;
             const rank = (group) => Math.min(...[...group.children].filter((option) => option.value !== '').map((option) => {
                 const index = flat.indexOf(legacyOptionKey(option));
-                return index < 0 ? MAXI : index;
+                return index < 0 ? LAST_POSITION : index;
             }));
             groups.sort((a, b) => rank(a) - rank(b));
             legacyPrefs.groupOrder = groups.map((group) => group.label || '?');
@@ -175,15 +345,19 @@
         });
     };
 
+    function savedPosition(order, key) {
+        const index = order.indexOf(key);
+        return index < 0 ? LAST_POSITION : index;
+    }
+
     function applyLegacyOrder(select) {
         const selected = select.selectedOptions[0];
         const groups = [...select.children].filter((child) => child.tagName === 'OPTGROUP');
         const loose = [...select.children].filter((child) => child.tagName === 'OPTION' && child.value !== '');
         if (groups.length) {
             groups.sort((a, b) => {
-                const ai = legacyPrefs.groupOrder.indexOf(a.label || '?');
-                const bi = legacyPrefs.groupOrder.indexOf(b.label || '?');
-                return (ai < 0 ? MAXI : ai) - (bi < 0 ? MAXI : bi);
+                return savedPosition(legacyPrefs.groupOrder, a.label || '?') -
+                    savedPosition(legacyPrefs.groupOrder, b.label || '?');
             });
             groups.forEach((group) => {
                 const world = group.label || '?';
@@ -191,8 +365,8 @@
                 if (legacySort === 'default') {
                     const order = legacyPrefs.characterOrder[world] || [];
                     options.sort((a, b) => {
-                        const ai = order.indexOf(legacyOptionKey(a)), bi = order.indexOf(legacyOptionKey(b));
-                        return (ai < 0 ? MAXI : ai) - (bi < 0 ? MAXI : bi);
+                        return savedPosition(order, legacyOptionKey(a)) -
+                            savedPosition(order, legacyOptionKey(b));
                     });
                 } else legacySortOptions(options);
                 options.forEach((option) => group.appendChild(option));
@@ -200,8 +374,9 @@
             });
         } else if (loose.length) {
             if (legacySort === 'default') {
-                const order = legacyPrefs.characterOrder['?'] || [];
-                loose.sort((a, b) => order.indexOf(legacyOptionKey(a)) - order.indexOf(legacyOptionKey(b)));
+                const order = legacyPrefs.characterOrder['Postacie'] || legacyPrefs.characterOrder['?'] || [];
+                loose.sort((a, b) => savedPosition(order, legacyOptionKey(a)) -
+                    savedPosition(order, legacyOptionKey(b)));
             } else legacySortOptions(loose);
             loose.forEach((option) => select.appendChild(option));
         }
@@ -229,12 +404,21 @@
         if (!group) return;
         const options = group._loose ? group.children : [...group.children].filter((option) => option.value !== '');
         let order;
-        if (legacySort === 'default') order = (legacyPrefs.characterOrder[world] || (legacyPrefs.characterOrder[world] = options.map(legacyOptionKey))).slice();
-        else { order = options.slice(); legacySortOptions(order); order = order.map(legacyOptionKey); }
+        if (legacySort === 'default') {
+            order = (legacyPrefs.characterOrder[world] || options.map(legacyOptionKey)).slice();
+        } else {
+            order = options.slice();
+            legacySortOptions(order);
+            order = order.map(legacyOptionKey);
+        }
+        const currentKeys = options.map(legacyOptionKey);
+        order = order.filter((item) => currentKeys.includes(item));
+        order.push(...currentKeys.filter((item) => !order.includes(item)));
         const from = order.indexOf(key);
         if (from < 0 || targetIndex < 0 || targetIndex >= order.length || from === targetIndex) return;
         order.splice(from, 1);
         order.splice(targetIndex, 0, key);
+        legacyPrefs.characterOrder[world] = order;
         legacySort = 'default';
         applyLegacyOrder(select);
         renderLegacyDialog(select);
@@ -242,8 +426,11 @@
 
     function legacyButton(label, title, onClick) {
         const button = document.createElement('button');
-        button.type = 'button'; button.textContent = label; button.title = title;
-        button.className = 'mdr-legacy-button'; button.addEventListener('click', onClick);
+        button.type = 'button';
+        button.textContent = label;
+        button.title = title;
+        button.className = 'mdr-legacy-button';
+        button.addEventListener('click', onClick);
         return button;
     }
 
@@ -260,38 +447,54 @@
             const world = group.label || '?';
             const options = group._loose ? group.children.slice() : [...group.children].filter((option) => option.value !== '');
             const order = legacyPrefs.characterOrder[world] || (legacyPrefs.characterOrder[world] = options.map(legacyOptionKey));
-            options.sort((a, b) => legacySort === 'default'
-                ? (() => { const ai = order.indexOf(legacyOptionKey(a)), bi = order.indexOf(legacyOptionKey(b)); return (ai < 0 ? MAXI : ai) - (bi < 0 ? MAXI : bi); })()
-                : 0);
-            if (legacySort !== 'default') legacySortOptions(options);
-            const section = document.createElement('section'); section.className = 'mdr-legacy-world';
-            const heading = document.createElement('div'); heading.className = 'mdr-legacy-world-head';
-            const title = document.createElement('strong'); title.textContent = world;
-            const groupControls = document.createElement('span'); groupControls.className = 'mdr-legacy-actions';
+            if (legacySort === 'default') {
+                options.sort((a, b) => savedPosition(order, legacyOptionKey(a)) -
+                    savedPosition(order, legacyOptionKey(b)));
+            } else {
+                legacySortOptions(options);
+            }
+            const section = document.createElement('section');
+            section.className = 'mdr-legacy-world';
+            const heading = document.createElement('div');
+            heading.className = 'mdr-legacy-world-head';
+            const title = document.createElement('strong');
+            title.textContent = world;
+            const groupControls = document.createElement('span');
+            groupControls.className = 'mdr-legacy-actions';
             groupControls.append(
                 legacyButton('↑', 'Przesuń świat wyżej', () => reorderLegacyGroup(select, world, groupIndex - 1)),
                 legacyButton('↓', 'Przesuń świat niżej', () => reorderLegacyGroup(select, world, groupIndex + 1))
             );
-            heading.append(title, groupControls); heading.draggable = true; heading.dataset.world = world;
+            heading.append(title, groupControls);
+            heading.draggable = true;
+            heading.dataset.world = world;
             heading.addEventListener('dragstart', (event) => { event.dataTransfer.setData('text/mdr-world', world); event.dataTransfer.effectAllowed = 'move'; });
             heading.addEventListener('dragover', (event) => { if (event.dataTransfer.types.includes('text/mdr-world')) event.preventDefault(); });
             heading.addEventListener('drop', (event) => {
                 const source = event.dataTransfer.getData('text/mdr-world');
                 if (!source || source === world) return;
                 event.preventDefault();
-                const current = [...groupOrder]; const from = current.indexOf(source), to = current.indexOf(world);
+                const current = [...groupOrder];
+                const from = current.indexOf(source), to = current.indexOf(world);
                 if (from >= 0 && to >= 0) { current.splice(from, 1); current.splice(to, 0, source); legacyPrefs.groupOrder = current; applyLegacyOrder(select); renderLegacyDialog(select); }
             });
             section.appendChild(heading);
-            const chars = document.createElement('div'); chars.className = 'mdr-legacy-characters';
+            const chars = document.createElement('div');
+            chars.className = 'mdr-legacy-characters';
             options.forEach((option, index) => {
                 const key = legacyOptionKey(option);
-                const row = document.createElement('div'); row.className = 'mdr-legacy-character'; row.draggable = true;
+                const row = document.createElement('div');
+                row.className = 'mdr-legacy-character';
+                row.draggable = true;
                 row.classList.toggle('is-hidden', legacyHidden.has(key));
-                const text = document.createElement('button'); text.type = 'button'; text.className = 'mdr-legacy-select';
-                text.textContent = option.textContent.trim(); text.title = 'Wybierz tę postać na natywnej liście';
+                const text = document.createElement('button');
+                text.type = 'button';
+                text.className = 'mdr-legacy-select';
+                text.textContent = option.textContent.trim();
+                text.title = 'Wybierz tę postać na natywnej liście';
                 text.addEventListener('click', () => { select.selectedIndex = [...select.options].indexOf(option); select.dispatchEvent(new Event('change', { bubbles: true })); });
-                const actions = document.createElement('span'); actions.className = 'mdr-legacy-actions';
+                const actions = document.createElement('span');
+                actions.className = 'mdr-legacy-actions';
                 const favorite = legacyButton(legacySelectFavorite === key ? '★' : '☆', 'Ustaw lub usuń ulubioną postać', () => {
                     legacySelectFavorite = legacySelectFavorite === key ? null : key; saveLegacy(); renderLegacyDialog(select);
                 });
@@ -304,7 +507,9 @@
                     legacyButton('↓', 'Przesuń postać niżej w tym świecie', () => reorderLegacyCharacter(select, world, key, index + 1)),
                     favorite, hide
                 );
-                row.append(text, actions); row.dataset.world = world; row.dataset.key = key;
+                row.append(text, actions);
+                row.dataset.world = world;
+                row.dataset.key = key;
                 row.addEventListener('dragstart', (event) => {
                     event.dataTransfer.setData('text/mdr-character', JSON.stringify({ world, key }));
                     event.dataTransfer.effectAllowed = 'move';
@@ -320,7 +525,8 @@
                 });
                 chars.appendChild(row);
             });
-            section.appendChild(chars); list.appendChild(section);
+            section.appendChild(chars);
+            list.appendChild(section);
         });
     }
 
@@ -329,9 +535,7 @@
         const host = select.parentElement;
         host.querySelectorAll(':scope > .mdr-legacy-gear, :scope > .mdr-legacy-panel').forEach((node) => node.remove());
         let configButton = document.querySelector('.mdr-legacy-config');
-        // Nie kotwicz przycisku do dowolnego linku /config: na starej stronie
-        // link w banerze zaproszenia na świat prywatny też prowadzi do /config.
-        // Zakotwicz go względem stałej pozycji w sekcji Narzędzia.
+        // Anchor to the Tools section. Invitation banners also link to /config.
         const quickLoadLink = [...document.querySelectorAll('a')].find((link) =>
             /szybsze\s+ładowanie\s+gry/i.test(link.textContent.trim())
         );
@@ -340,8 +544,7 @@
             const currentItem = configButton?.closest('li') || configButton;
             const alreadyInTools = configButton && currentItem.parentElement === quickLoadItem.parentElement && currentItem.nextElementSibling === quickLoadItem;
             if (configButton && !alreadyInTools) {
-                // Usuń wyłącznie nasz link z banera/komunikatu; nie przenoś
-                // jego kontenera, bo zawiera też tekst strony.
+                // Remove only our misplaced link, preserving the surrounding page content.
                 const oldItem = configButton.closest('li');
                 configButton.remove();
                 if (oldItem && !oldItem.textContent.trim() && !oldItem.querySelector('*')) oldItem.remove();
@@ -349,6 +552,11 @@
             }
             if (!configButton) {
                 const item = quickLoadItem.cloneNode(true);
+                // The cloned item must open our dialog, not run the theme's quick loader.
+                [item, ...item.querySelectorAll('*')].forEach((element) => {
+                    [...element.attributes].filter((attribute) => /^on/i.test(attribute.name))
+                        .forEach((attribute) => element.removeAttribute(attribute.name));
+                });
                 configButton = item.matches('a') ? item : item.querySelector('a');
                 if (configButton) {
                     configButton.classList.add('mdr-legacy-config');
@@ -374,41 +582,179 @@
         if (!legacyDialog) {
             const style = document.createElement('style');
             style.textContent = `
-                .mdr-legacy-config::before{content:"· ";}
-                .mdr-legacy-dialog[hidden]{display:none!important}.mdr-legacy-dialog{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.74);font:14px Arial,sans-serif;color:#f4e4bf}
-                .mdr-legacy-box{width:min(720px,96vw);max-height:88vh;display:flex;flex-direction:column;background:#302015;border:2px solid #9c7445;border-radius:9px;box-shadow:0 14px 50px #000;padding:16px;box-sizing:border-box}
-                .mdr-legacy-top{display:flex;align-items:center;gap:12px;border-bottom:1px solid #8e6b43;padding-bottom:12px}.mdr-legacy-top h2{margin:0 auto 0 0;color:#ffe7a0;font-size:20px}
-                .mdr-legacy-sort{padding:6px;max-width:210px}.mdr-legacy-list{overflow:auto;padding:12px 4px;display:flex;flex-direction:column;gap:10px}
-                .mdr-legacy-world{border:1px solid #76542f;border-radius:6px;background:rgba(255,230,180,.06);padding:8px}.mdr-legacy-world-head{display:flex;align-items:center;justify-content:space-between;padding:2px 3px 7px;border-bottom:1px solid #65472c;cursor:grab;color:#ffe7a0;font-size:16px}
-                .mdr-legacy-characters{display:flex;flex-direction:column;gap:4px;padding-top:6px}.mdr-legacy-character{display:flex;align-items:center;gap:8px;min-height:34px;padding:4px 5px;background:rgba(0,0,0,.2);border-radius:4px;cursor:grab}.mdr-legacy-character.is-hidden{opacity:.48}
-                .mdr-legacy-select{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:none;border:0;color:inherit;cursor:pointer;font:inherit}.mdr-legacy-actions{display:flex;gap:3px;flex-shrink:0}
-                .mdr-legacy-button{min-width:29px;min-height:27px;cursor:pointer;color:#ffe7a0;background:linear-gradient(#8a4c28,#542817);border:1px solid #654326;border-radius:4px;font:13px Arial,sans-serif}
-                .mdr-legacy-bottom{display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #8e6b43;padding-top:11px}.mdr-legacy-bottom button{padding:7px 11px}
-                @media(max-width:520px){.mdr-legacy-box{padding:10px}.mdr-legacy-top{flex-wrap:wrap}.mdr-legacy-top h2{width:70%}.mdr-legacy-character{align-items:flex-start}.mdr-legacy-actions{flex-wrap:wrap;justify-content:flex-end;max-width:128px}}
+                .mdr-legacy-config::before {
+                    content:"· ";
+                }
+                .mdr-legacy-dialog[hidden] {
+                    display:none!important;
+                }
+                .mdr-legacy-dialog {
+                    position:fixed;
+                    inset:0;
+                    z-index:2147483000;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    padding:16px;
+                    background:rgba(0,0,0,.74);
+                    font:14px Arial,sans-serif;
+                    color:#f4e4bf;
+                }
+                .mdr-legacy-box {
+                    width:min(720px,96vw);
+                    max-height:88vh;
+                    display:flex;
+                    flex-direction:column;
+                    background:#302015;
+                    border:2px solid #9c7445;
+                    border-radius:9px;
+                    box-shadow:0 14px 50px #000;
+                    padding:16px;
+                    box-sizing:border-box;
+                }
+                .mdr-legacy-top {
+                    display:flex;
+                    align-items:center;
+                    gap:12px;
+                    border-bottom:1px solid #8e6b43;
+                    padding-bottom:12px;
+                }
+                .mdr-legacy-top h2 {
+                    margin:0 auto 0 0;
+                    color:#ffe7a0;
+                    font-size:20px;
+                }
+                .mdr-legacy-sort {
+                    padding:6px;
+                    max-width:210px;
+                }
+                .mdr-legacy-list {
+                    overflow:auto;
+                    padding:12px 4px;
+                    display:flex;
+                    flex-direction:column;
+                    gap:10px;
+                }
+                .mdr-legacy-world {
+                    border:1px solid #76542f;
+                    border-radius:6px;
+                    background:rgba(255,230,180,.06);
+                    padding:8px;
+                }
+                .mdr-legacy-world-head {
+                    display:flex;
+                    align-items:center;
+                    justify-content:space-between;
+                    padding:2px 3px 7px;
+                    border-bottom:1px solid #65472c;
+                    cursor:grab;
+                    color:#ffe7a0;
+                    font-size:16px;
+                }
+                .mdr-legacy-characters {
+                    display:flex;
+                    flex-direction:column;
+                    gap:4px;
+                    padding-top:6px;
+                }
+                .mdr-legacy-character {
+                    display:flex;
+                    align-items:center;
+                    gap:8px;
+                    min-height:34px;
+                    padding:4px 5px;
+                    background:rgba(0,0,0,.2);
+                    border-radius:4px;
+                    cursor:grab;
+                }
+                .mdr-legacy-character.is-hidden {
+                    opacity:.48;
+                }
+                .mdr-legacy-select {
+                    flex:1;
+                    min-width:0;
+                    text-align:left;
+                    overflow:hidden;
+                    text-overflow:ellipsis;
+                    white-space:nowrap;
+                    background:none;
+                    border:0;
+                    color:inherit;
+                    cursor:pointer;
+                    font:inherit;
+                }
+                .mdr-legacy-actions {
+                    display:flex;
+                    gap:3px;
+                    flex-shrink:0;
+                }
+                .mdr-legacy-button {
+                    min-width:29px;
+                    min-height:27px;
+                    cursor:pointer;
+                    color:#ffe7a0;
+                    background:linear-gradient(#8a4c28,#542817);
+                    border:1px solid #654326;
+                    border-radius:4px;
+                    font:13px Arial,sans-serif;
+                }
+                .mdr-legacy-bottom {
+                    display:flex;
+                    gap:8px;
+                    justify-content:flex-end;
+                    border-top:1px solid #8e6b43;
+                    padding-top:11px;
+                }
+                .mdr-legacy-bottom button {
+                    padding:7px 11px;
+                }
+                @media(max-width:520px) {
+                    .mdr-legacy-box {
+                        padding:10px;
+                    }
+                    .mdr-legacy-top {
+                        flex-wrap:wrap;
+                    }
+                    .mdr-legacy-top h2 {
+                        width:70%;
+                    }
+                    .mdr-legacy-character {
+                        align-items:flex-start;
+                    }
+                    .mdr-legacy-actions {
+                        flex-wrap:wrap;
+                        justify-content:flex-end;
+                        max-width:128px;
+                    }
+                }
             `;
             document.head.appendChild(style);
-            legacyDialog = document.createElement('div'); legacyDialog.className = 'mdr-legacy-dialog'; legacyDialog.hidden = true;
-            const box = document.createElement('div'); box.className = 'mdr-legacy-box';
+            legacyDialog = document.createElement('div');
+            legacyDialog.className = 'mdr-legacy-dialog';
+            legacyDialog.hidden = true;
+            const box = document.createElement('div');
+            box.className = 'mdr-legacy-box';
             box.innerHTML = '<div class="mdr-legacy-top"><h2>Ustawienia postaci</h2><label>Sortuj w światach <select class="mdr-legacy-sort"><option value="default">Kolejność własna</option><option value="name-asc">Nazwa A–Z</option><option value="name-desc">Nazwa Z–A</option><option value="level-asc">Poziom rosnąco</option><option value="level-desc">Poziom malejąco</option></select></label><button type="button" class="mdr-legacy-button mdr-legacy-close" aria-label="Zamknij">✕</button></div><div class="mdr-legacy-list"></div><div class="mdr-legacy-bottom"><button type="button" class="mdr-legacy-button mdr-legacy-hidden"></button><button type="button" class="mdr-legacy-button mdr-legacy-restore">Odkryj wszystkie</button><button type="button" class="mdr-legacy-button mdr-legacy-reset">Resetuj kolejność</button></div>';
-            legacyDialog.appendChild(box); document.body.appendChild(legacyDialog);
+            legacyDialog.appendChild(box);
+            document.body.appendChild(legacyDialog);
             legacyDialog.querySelector('.mdr-legacy-hidden').textContent = 'Pokaż ukryte';
             legacyDialog.querySelector('.mdr-legacy-close').addEventListener('click', () => { legacyDialogOpen = false; legacyDialog.hidden = true; });
             legacyDialog.addEventListener('click', (event) => { if (event.target === legacyDialog) { legacyDialogOpen = false; legacyDialog.hidden = true; } });
-            legacyDialog.querySelector('.mdr-legacy-sort').addEventListener('change', (event) => { legacySort = event.target.value; applyLegacyOrder(select); renderLegacyDialog(select); });
+            legacyDialog.querySelector('.mdr-legacy-sort').addEventListener('change', (event) => { legacySort = event.target.value; applyLegacyOrder(legacySelect); renderLegacyDialog(legacySelect); });
             legacyDialog.querySelector('.mdr-legacy-hidden').addEventListener('click', (event) => {
-                legacyShowHidden = !legacyShowHidden; applyLegacyHidden(select);
+                legacyShowHidden = !legacyShowHidden; applyLegacyHidden(legacySelect);
                 event.currentTarget.textContent = legacyShowHidden ? 'Schowaj ukryte' : 'Pokaż ukryte';
-                renderLegacyDialog(select);
+                renderLegacyDialog(legacySelect);
             });
             legacyDialog.querySelector('.mdr-legacy-restore').addEventListener('click', () => {
-                legacyHidden.clear(); legacyShowHidden = false; applyLegacyHidden(select); saveLegacy(); renderLegacyDialog(select);
+                legacyHidden.clear(); legacyShowHidden = false; applyLegacyHidden(legacySelect); saveLegacy(); renderLegacyDialog(legacySelect);
                 legacyDialog.querySelector('.mdr-legacy-hidden').textContent = 'Pokaż ukryte';
             });
             legacyDialog.querySelector('.mdr-legacy-reset').addEventListener('click', () => {
-                legacyPrefs.groupOrder = legacyGroups(select).map((group) => group.label || '?');
+                legacyPrefs.groupOrder = legacyGroups(legacySelect).map((group) => group.label || '?');
                 legacyPrefs.characterOrder = {};
-                legacyGroups(select).forEach((group) => { const world = group.label || '?'; legacyPrefs.characterOrder[world] = (group._loose ? group.children : [...group.children]).filter((option) => option.value !== '').map(legacyOptionKey); });
-                legacySort = 'default'; applyLegacyOrder(select); renderLegacyDialog(select);
+                legacyGroups(legacySelect).forEach((group) => { const world = group.label || '?'; legacyPrefs.characterOrder[world] = (group._loose ? group.children : [...group.children]).filter((option) => option.value !== '').map(legacyOptionKey); });
+                legacySort = 'default'; applyLegacyOrder(legacySelect); renderLegacyDialog(legacySelect);
             });
             document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && legacyDialogOpen) { legacyDialogOpen = false; legacyDialog.hidden = true; } });
         }
@@ -459,8 +805,8 @@
     }
 
     const orderIdx = (t) => {
-        const i = cfg.order.indexOf(t.dataset.id);
-        return i === -1 ? MAXI : i;
+        const i = preferences.order.indexOf(t.dataset.id);
+        return i === -1 ? LAST_POSITION : i;
     };
     const byOrder = (a, b) => orderIdx(a) - orderIdx(b);
     const worldOf = (t) => {
@@ -468,7 +814,7 @@
         return (inp && inp.value) || t.dataset.world || '?';
     };
 
-    // Przestawia kafelki w ich dotychczasowych "slotach" w DOM
+    // Reorder tiles within their existing DOM slots.
     function reorderInPlace(kids, cmp) {
         const sorted = kids.slice().sort(cmp);
         const marks = kids.map((k) => {
@@ -485,13 +831,13 @@
         );
     }
 
-    function lca(nodes) {
+    function commonAncestor(nodes) {
         let a = nodes[0];
         while (a && !nodes.every((n) => a.contains(n))) a = a.parentElement;
         return a;
     }
 
-    // ---------- panel opcji ----------
+    // Options panel
     function ensurePanel(sel) {
         const holder = sel.parentElement;
         if (holder.parentElement.querySelector(':scope > .mdr-panel')) return;
@@ -503,24 +849,24 @@
         const lbl = 'display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;margin:0;';
         const chk = 'margin:0;cursor:pointer;';
         const btnCss =
-            'cursor:pointer;white-space:nowrap;margin:0;min-height:32px;padding:5px 12px;font-size:13px;' +
+            'display:inline-flex!important;float:none!important;clear:none!important;flex:0 0 auto!important;width:auto!important;cursor:pointer;white-space:nowrap;margin:0!important;min-height:32px;padding:5px 12px;font-size:13px;' +
             'border:1px solid rgba(0,0,0,.45);border-radius:4px;background:rgba(255,255,255,.55);color:#000;';
         panel.innerHTML =
             '<label style="' + lbl + '"><input type="checkbox" class="mdr-custom" style="' + chk + '"><span>Własna kolejność</span></label>' +
             '<label style="' + lbl + '"><input type="checkbox" class="mdr-group" style="' + chk + '"><span>Rozdziel wg światów</span></label>' +
-            '<span class="mdr-actions" style="display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;width:100%;box-sizing:border-box">' +
+            '<div class="mdr-actions" style="display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;justify-content:flex-end!important;gap:8px!important;flex:0 0 auto!important;width:max-content!important;max-width:none!important;min-width:max-content!important">' +
             '<button type="button" class="mdr-show" style="' + btnCss + '"></button>' +
             '<button type="button" class="mdr-restore-all" style="' + btnCss + '">Odkryj wszystkie</button>' +
             '<button type="button" class="mdr-reset" style="' + btnCss + '">Resetuj kolejność</button>' +
             '<button type="button" class="mdr-unpin-all" style="' + btnCss + '">Odepnij wszystkie</button>' +
-            '</span>';
+            '</div>';
         holder.insertAdjacentElement('afterend', panel);
         panel.querySelector('.mdr-show').addEventListener('click', () => {
             showHidden = !showHidden;
             refresh();
         });
         panel.querySelector('.mdr-restore-all').addEventListener('click', () => {
-            cfg.hidden = [];
+            preferences.hidden = [];
             showHidden = false;
             save();
             refresh();
@@ -536,43 +882,45 @@
 
         const cCustom = panel.querySelector('.mdr-custom');
         const cGroup = panel.querySelector('.mdr-group');
-        cCustom.checked = cfg.custom;
-        cGroup.checked = cfg.group;
-        cCustom.addEventListener('change', () => { cfg.custom = cCustom.checked; save(); refresh(); });
-        cGroup.addEventListener('change', () => { cfg.group = cGroup.checked; save(); refresh(); });
+        cCustom.checked = preferences.custom;
+        cGroup.checked = preferences.group;
+        cCustom.addEventListener('change', () => { preferences.custom = cCustom.checked; save(); refresh(); });
+        cGroup.addEventListener('change', () => { preferences.group = cGroup.checked; save(); refresh(); });
         panel.querySelector('.mdr-reset').addEventListener('click', () => {
-            cfg.order = []; cfg.custom = false; cCustom.checked = false; save();
-            // wymuś ponowne posortowanie przez stronę
+            preferences.order = [];
+            preferences.custom = false;
+            cCustom.checked = false; save();
+            // Ask the page to reapply its native sorting.
             sel.dispatchEvent(new Event('change', { bubbles: true }));
             refresh();
         });
     }
 
-    // ---------- zapamiętywanie sortowania ----------
+    // Persist native sorting
     function handleSort(sel) {
         if (sel.dataset.mdrInit) return false;
         sel.dataset.mdrInit = '1';
         sel.addEventListener('change', (e) => {
             if (!e.isTrusted) return;
             const o = sel.options[sel.selectedIndex];
-            cfg.sort = { value: sel.value, text: o ? o.textContent.trim() : '' };
+            preferences.sort = { value: sel.value, text: o ? o.textContent.trim() : '' };
             save();
         });
-        if (!cfg.sort) return false;
+        if (!preferences.sort) return false;
         let changed = false;
-        if (sel.value !== cfg.sort.value) {
-            sel.value = cfg.sort.value;
-            if (sel.value !== cfg.sort.value) {
-                const o = [...sel.options].find((x) => x.textContent.trim() === cfg.sort.text);
+        if (sel.value !== preferences.sort.value) {
+            sel.value = preferences.sort.value;
+            if (sel.value !== preferences.sort.value) {
+                const o = [...sel.options].find((x) => x.textContent.trim() === preferences.sort.text);
                 if (o) sel.value = o.value;
             }
-            changed = sel.value !== cfg.sort.value || true;
+            changed = true;
         }
         if (changed) sel.dispatchEvent(new Event('change', { bubbles: true }));
         return changed;
     }
 
-    // ---------- drag & drop ----------
+    // Drag and drop
     function attachDnD(t) {
         if (t._mdrDnD) return;
         t._mdrDnD = true;
@@ -600,15 +948,53 @@
             t.parentElement.insertBefore(dragged, after ? t.nextSibling : t);
 
             const ids = [...document.querySelectorAll(TILE)].map((x) => x.dataset.id);
-            cfg.order = ids.concat(cfg.order.filter((id) => !ids.includes(id)));
-            cfg.custom = true;
+            preferences.order = ids.concat(preferences.order.filter((id) => !ids.includes(id)));
+            preferences.custom = true;
             const cb = document.querySelector('.mdr-custom');
             if (cb) cb.checked = true;
             save();
         });
     }
 
-    // ---------- ukrywanie postaci ----------
+    let tileTooltip = null;
+
+    function setTileTooltip(button, text) {
+        button.dataset.mdrTooltip = text;
+        button.setAttribute('aria-label', text);
+        button.removeAttribute('title');
+        if (button._mdrTooltipBound) return;
+        button._mdrTooltipBound = true;
+        const hide = () => { if (tileTooltip) tileTooltip.hidden = true; };
+        const show = () => {
+            if (!tileTooltip) {
+                tileTooltip = document.createElement('div');
+                tileTooltip.className = 'mdr-tile-tooltip';
+                tileTooltip.setAttribute('role', 'tooltip');
+                document.body.appendChild(tileTooltip);
+            }
+            tileTooltip.textContent = button.dataset.mdrTooltip;
+            tileTooltip.hidden = false;
+            const anchor = button.getBoundingClientRect();
+            const tooltip = tileTooltip.getBoundingClientRect();
+            const left = Math.max(8, Math.min(anchor.right - tooltip.width,
+                window.innerWidth - tooltip.width - 8));
+            const top = anchor.top >= tooltip.height + 8
+                ? anchor.top - tooltip.height - 6
+                : anchor.bottom + 6;
+            tileTooltip.style.left = `${left}px`;
+            tileTooltip.style.top = `${top}px`;
+        };
+        button.addEventListener('mouseenter', show);
+        button.addEventListener('mouseleave', hide);
+        button.addEventListener('focus', show);
+        button.addEventListener('blur', hide);
+        button.addEventListener('click', hide);
+    }
+    window.addEventListener('scroll', () => {
+        if (tileTooltip) tileTooltip.hidden = true;
+    }, true);
+
+    // Character visibility
     function attachHideBtn(t) {
         if (t._mdrBtn) return;
         const b = document.createElement('span');
@@ -624,8 +1010,8 @@
             e.stopPropagation();
             e.preventDefault();
             const id = t.dataset.id;
-            const i = cfg.hidden.indexOf(id);
-            if (i === -1) cfg.hidden.push(id); else cfg.hidden.splice(i, 1);
+            const i = preferences.hidden.indexOf(id);
+            if (i === -1) preferences.hidden.push(id); else preferences.hidden.splice(i, 1);
             save();
             refresh();
         });
@@ -634,7 +1020,7 @@
         t._mdrBtn = b;
     }
 
-    // ---------- ulubiona postać ----------
+    // Favorite character
     function attachFavoriteBtn(t) {
         if (t._mdrFavoriteBtn) return;
         const b = document.createElement('span');
@@ -648,7 +1034,7 @@
         b.addEventListener('click', (e) => {
             e.stopPropagation();
             e.preventDefault();
-            cfg.def = cfg.def === t.dataset.id ? null : t.dataset.id;
+            preferences.def = preferences.def === t.dataset.id ? null : t.dataset.id;
             save();
             updateFavoriteButtons();
         });
@@ -661,9 +1047,9 @@
     function updateFavoriteButton(t) {
         const b = t._mdrFavoriteBtn;
         if (!b) return;
-        const isFavorite = cfg.def === t.dataset.id;
+        const isFavorite = preferences.def === t.dataset.id;
         b.textContent = isFavorite ? '★' : '☆';
-        b.title = isFavorite ? 'Ulubiona postać (kliknij, aby odznaczyć)' : 'Ustaw jako ulubioną postać';
+        setTileTooltip(b, isFavorite ? 'Usuń z ulubionych' : 'Ustaw jako ulubioną');
     }
 
     function updateFavoriteButtons() {
@@ -685,7 +1071,7 @@
             if (!button) return;
             const pinned = pinnedCharacters.includes(tile.dataset.id);
             button.textContent = pinned ? '📌' : '＋';
-            button.title = pinned ? 'Odepnij postać z szybkiego wejścia' : 'Przypnij do szybkiego wejścia';
+            setTileTooltip(button, pinned ? 'Usuń z szybkiego logowania' : 'Dodaj do szybkiego logowania');
         });
     }
 
@@ -698,7 +1084,8 @@
         button.addEventListener('mousedown', (event) => event.stopPropagation());
         button.addEventListener('mouseup', (event) => event.stopPropagation());
         button.addEventListener('click', (event) => {
-            event.stopPropagation(); event.preventDefault();
+            event.stopPropagation();
+            event.preventDefault();
             if (!activeRoster) return;
             const id = tile.dataset.id;
             if (pinnedCharacters.includes(id)) pinnedCharacters = pinnedCharacters.filter((item) => item !== id);
@@ -709,19 +1096,23 @@
             save(); renderPinnedCharacters([...document.querySelectorAll(TILE)]); updatePinnedButtons();
         });
         if (getComputedStyle(tile).position === 'static') tile.style.position = 'relative';
-        tile.appendChild(button); tile._mdrPinBtn = button; updatePinnedButtons();
+        tile.appendChild(button);
+        tile._mdrPinBtn = button; updatePinnedButtons();
     }
 
     function characterPortrait(tile) {
         const img = tile.querySelector('img');
         if (img?.src) {
             const portrait = document.createElement('img');
-            portrait.src = img.currentSrc || img.src; portrait.alt = ''; portrait.className = 'mdr-pin-portrait';
+            portrait.src = img.currentSrc || img.src;
+            portrait.alt = '';
+            portrait.className = 'mdr-pin-portrait';
             return portrait;
         }
         const source = [tile, ...tile.querySelectorAll('*')].find((element) => getComputedStyle(element).backgroundImage !== 'none');
         if (!source) return null;
-        const portrait = document.createElement('span'); portrait.className = 'mdr-pin-portrait';
+        const portrait = document.createElement('span');
+        portrait.className = 'mdr-pin-portrait';
         portrait.style.backgroundImage = getComputedStyle(source).backgroundImage;
         portrait.style.backgroundPosition = getComputedStyle(source).backgroundPosition;
         portrait.style.backgroundRepeat = 'no-repeat';
@@ -733,8 +1124,7 @@
         const info = enter.closest('.info-container');
         if (!info) return;
 
-        // Separator „LUB” niepotrzebnie zajmuje pionowe miejsce po przeniesieniu
-        // przycisku logowania zastępcy do wspólnego rzędu z wejściem do gry.
+        // Hide the separator after moving both login actions into one row.
         const loginRoot = enter.closest('#js-login-box') || enter.closest('.box-enter') || enter.parentElement;
         [...loginRoot.querySelectorAll('*')].forEach((element) => {
             if (element.dataset.mdrHiddenAlternative === '1') return;
@@ -805,7 +1195,7 @@
             const panelRect = panel.getBoundingClientRect();
             const cardRect = card.getBoundingClientRect();
             const actionsRect = actions.getBoundingClientRect();
-            if (!card.offsetHeight || !panelRect.height) return;
+            if (!card.offsetHeight || !cardRect.height || !panelRect.height) return;
             const scale = cardRect.height / card.offsetHeight;
             const previousOffset = panel._mdrQuickOffset || 0;
             const naturalTop = panelRect.top - previousOffset * scale;
@@ -823,7 +1213,8 @@
     function observeQuickLayout(panel, enter) {
         const elements = [panel, enter.closest('.mdr-login-actions'),
             panel.closest('.header-box--logged')].filter(Boolean);
-        if (elements.some((element, index) => element !== quickLayoutElements[index])) {
+        if (elements.length !== quickLayoutElements.length ||
+            elements.some((element, index) => element !== quickLayoutElements[index])) {
             quickLayoutObserver.disconnect();
             elements.forEach((element) => quickLayoutObserver.observe(element));
             quickLayoutElements = elements;
@@ -839,8 +1230,6 @@
         arrangeQuickLoginActions(enter);
         const tileById = new Map(tiles.map((tile) => [tile.dataset.id, tile]));
         pinnedCharacters = pinnedCharacters.filter((id) => tileById.has(id)).slice(0, 9);
-        pinnedByRoster[activeRoster] = pinnedCharacters;
-        GM_setValue('pinnedByRoster', pinnedByRoster);
         let panel = document.querySelector('.mdr-quick-login');
         if (!panel) { panel = document.createElement('div'); panel.className = 'mdr-quick-login'; }
         const parent = enter.closest('.info-container') || enter.parentElement;
@@ -858,18 +1247,32 @@
         if (panel.hidden) return;
         pinnedCharacters.forEach((id) => {
             const tile = tileById.get(id); if (!tile) return;
-            const card = document.createElement('button'); card.type = 'button'; card.className = 'mdr-quick-character';
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'mdr-quick-character';
             card.title = `Wejdź do gry postacią ${characterName(tile)} (${worldOf(tile)})`;
-            const crop = document.createElement('span'); crop.className = 'mdr-pin-portrait-wrap';
+            const crop = document.createElement('span');
+            crop.className = 'mdr-pin-portrait-wrap';
             const portrait = characterPortrait(tile); if (portrait) crop.appendChild(portrait);
-            const label = document.createElement('span'); label.className = 'mdr-quick-label';
-            const name = document.createElement('strong'); name.textContent = characterName(tile);
-            const world = document.createElement('small'); world.textContent = worldOf(tile);
-            label.append(name, world); card.append(crop, label);
+            const label = document.createElement('span');
+            label.className = 'mdr-quick-label';
+            const name = document.createElement('strong');
+            name.textContent = characterName(tile);
+            const world = document.createElement('small');
+            world.textContent = worldOf(tile);
+            label.append(name, world);
+            card.append(crop, label);
             card.addEventListener('click', () => {
-                tile.click();
+                const roster = activeRoster;
+                const currentTile = [...document.querySelectorAll(TILE)]
+                    .find((candidate) => candidate.dataset.id === id);
+                if (!currentTile?.isConnected) return;
+                currentTile.click();
                 setTimeout(() => {
-                    const enterButton = document.querySelector('.info-container .enter-game');
+                    if (activeRoster !== roster || !currentTile.isConnected) return;
+                    const selectedId = document.querySelector('#js-login-box #chid');
+                    if (selectedId && selectedId.value !== id) return;
+                    const enterButton = document.querySelector('#js-login-box .enter-game');
                     if (enterButton && !enterButton.disabled) enterButton.click();
                 }, 100);
             });
@@ -877,18 +1280,16 @@
         });
     }
 
-    // Używamy pełnej listy ID postaci jako identyfikatora konta. Dzięki temu
-    // nie zależymy od tego, czy Margonem udostępnia nazwę zalogowanego konta w DOM.
+    // Use the complete roster as an account key when no account ID is exposed.
     function bindRoster(tiles) {
         const ids = tiles.map((t) => t.dataset.id).filter(Boolean).sort();
         if (!ids.length) return;
         const roster = ids.join(',');
         if (activeRoster === roster) return;
         activeRoster = roster;
-        cfg.def = favoritesByRoster[roster] || null;
+        preferences.def = favoritesByRoster[roster] || null;
         pinnedCharacters = (pinnedByRoster[roster] || []).filter((id) => ids.includes(id)).slice(0, 9);
-        // Po dodaniu postaci pełny skład ma nowy klucz. Odzyskaj przypięcia
-        // z poprzedniego składu, jeżeli wszystkie jego ID nadal należą do konta.
+        // Recover pins from a previous subset when a character is added.
         // An explicitly saved empty list must stay empty after unpinning all.
         if (!Object.prototype.hasOwnProperty.call(pinnedByRoster, roster)) {
             const previousRoster = Object.entries(pinnedByRoster)
@@ -900,9 +1301,10 @@
         }
         pinnedByRoster[roster] = pinnedCharacters;
         GM_setValue('pinnedByRoster', pinnedByRoster);
-        // Jednorazowa migracja wyboru z poprzedniej wersji skryptu.
-        if (!cfg.def && legacyFavorite && ids.includes(legacyFavorite)) {
-            cfg.def = legacyFavorite;
+        // Migrate the favorite saved by older releases once per roster.
+        if (!Object.prototype.hasOwnProperty.call(favoritesByRoster, roster) &&
+            legacyFavorite && ids.includes(legacyFavorite)) {
+            preferences.def = legacyFavorite;
             favoritesByRoster[roster] = legacyFavorite;
             GM_setValue('favoritesByRoster', favoritesByRoster);
         }
@@ -912,35 +1314,43 @@
     }
 
     function autoSelectFavorite(tiles) {
-        if (favoriteAutoSelected || !cfg.def) return;
-        const tile = tiles.find((t) => t.dataset.id === cfg.def);
+        if (favoriteAutoSelected || !preferences.def) return;
+        const tile = tiles.find((t) => t.dataset.id === preferences.def);
         if (!tile || tile.style.display === 'none' || !tile.isConnected) return;
-        // Kliknięcie kafelka korzysta z natywnej obsługi Margonem wyboru postaci.
+        // Use the native character selection handler.
         favoriteAutoSelected = true;
         tile.click();
     }
 
     function applyHidden(tiles) {
-        let count = 0;
-        tiles.forEach((t) => {
-            attachHideBtn(t);
-            const isHidden = cfg.hidden.includes(t.dataset.id);
-            if (isHidden) count++;
-            t.style.display = isHidden && !showHidden ? 'none' : '';
-            t.style.filter = isHidden ? 'grayscale(1) opacity(.55)' : '';
-            t._mdrBtn.textContent = isHidden ? '↺' : '✕';
-            t._mdrBtn.title = isHidden ? 'Przywróć postać' : 'Ukryj postać';
+        const hiddenIds = new Set(preferences.hidden);
+        const hiddenCount = tiles.filter((tile) => hiddenIds.has(tile.dataset.id)).length;
+        if (hiddenCount === 0) showHidden = false;
+
+        tiles.forEach((tile) => {
+            attachHideBtn(tile);
+            const isHidden = hiddenIds.has(tile.dataset.id);
+            tile.style.display = isHidden && !showHidden ? 'none' : '';
+            tile.style.filter = isHidden ? 'grayscale(1) opacity(.55)' : '';
+            tile._mdrBtn.textContent = isHidden ? '↺' : '✕';
+            setTileTooltip(tile._mdrBtn, isHidden ? 'Przywróć postać' : 'Ukryj postać');
         });
-        const btn = document.querySelector('.mdr-show');
-        const restoreAll = document.querySelector('.mdr-restore-all');
-        if (btn) {
-            btn.textContent = showHidden ? 'Schowaj ukryte' : 'Pokaż ukryte (' + count + ')';
-            btn.style.display = count || showHidden ? '' : 'none';
+
+        const panel = document.querySelector('.mdr-panel');
+        if (!panel) return;
+        const showButton = panel.querySelector('.mdr-show');
+        const restoreButton = panel.querySelector('.mdr-restore-all');
+        if (showButton) {
+            showButton.textContent = showHidden ? 'Schowaj ukryte' : `Pokaż ukryte (${hiddenCount})`;
         }
-        if (restoreAll) restoreAll.style.display = count ? '' : 'none';
+        [showButton, restoreButton].filter(Boolean).forEach((button) => {
+            button.hidden = hiddenCount === 0;
+            // Native page rules can override both hidden and normal inline display.
+            button.style.setProperty('display', hiddenCount ? 'inline-flex' : 'none', 'important');
+        });
     }
 
-    // ---------- główna logika ----------
+    // Refresh the modern panel
     function run() {
         arrangeDeputyTime();
         const tiles = [...document.querySelectorAll(TILE)];
@@ -966,14 +1376,14 @@
 
         const origins = [...new Set(tiles.map((t) => t._mdrOrigin).filter((o) => o && o.isConnected))];
         let host = null;
-        if (cfg.group && groupHost && groupHost.isConnected) host = groupHost;
-        else if (origins.length) host = lca(origins);
+        if (preferences.group && groupHost && groupHost.isConnected) host = groupHost;
+        else if (origins.length) host = commonAncestor(origins);
         else if (groupHost && groupHost.isConnected) host = groupHost;
         if (!host) return rerun;
 
         let g = host.querySelector(':scope > .mdr-groups');
 
-        if (cfg.group) {
+        if (preferences.group) {
             groupHost = host;
             if (!g) {
                 g = document.createElement('div');
@@ -981,9 +1391,8 @@
                 host.appendChild(g);
             }
             [...host.children].forEach((c) => {
-                // Gdy host jest jednocześnie oryginalną listą postaci,
-                // kafelki trafiają bezpośrednio do jego dzieci. Nie wolno
-                // ustawiać im display:none przed przeniesieniem do grupy.
+                // The host may contain character tiles directly. Preserve their visibility
+                // while moving them into world groups.
                 if (c !== g && !(c.matches && c.matches(TILE)) && !('mdrHid' in c.dataset)) {
                     c.dataset.mdrHid = c.style.display || '';
                     c.style.display = 'none';
@@ -991,7 +1400,7 @@
             });
 
             let list = [...document.querySelectorAll(TILE)];
-            if (cfg.custom) list.sort(byOrder);
+            if (preferences.custom) list.sort(byOrder);
             const listClass = (origins[0] && origins[0].className) || '';
             const worlds = new Map();
             list.forEach((t) => {
@@ -1009,9 +1418,8 @@
                 box.className = listClass;
                 worlds.get(w).forEach((t) => box.appendChild(t));
                 wrap.append(h, box);
-                // Widoczność kafelków może być ustawiana przez CSS Margonem lub
-                // inne dodatki. O ukryciu całej grupy decyduje wyłącznie nasza lista.
-                const visibleInWorld = worlds.get(w).some((t) => showHidden || !cfg.hidden.includes(t.dataset.id));
+                // Determine empty worlds from our hidden IDs, independent of page CSS.
+                const visibleInWorld = worlds.get(w).some((t) => showHidden || !preferences.hidden.includes(t.dataset.id));
                 wrap.style.display = visibleInWorld ? '' : 'none';
                 g.appendChild(wrap);
             });
@@ -1029,7 +1437,7 @@
                 }
             });
             groupHost = null;
-            if (cfg.custom) {
+            if (preferences.custom) {
                 origins.forEach((o) => {
                     const kids = [...o.children].filter((k) => k.matches && k.matches(TILE));
                     if (kids.length > 1) reorderInPlace(kids, byOrder);
@@ -1039,7 +1447,7 @@
         return rerun;
     }
 
-    const obs = new MutationObserver(() => {
+    const mutationObserver = new MutationObserver(() => {
         clearTimeout(timer);
         timer = setTimeout(refresh, 60);
     });
@@ -1063,8 +1471,7 @@
         if (!close || notice._mdrCloseScheduled) return;
         const attempts = Number(notice.dataset.mdrCloseAttempts || 0);
         if (attempts >= 12) {
-            // Ostatnia deska ratunku dla profili, w których obsługa X ładuje się
-            // z opóźnieniem albo nie jest dostępna. Komunikat jest tylko zaleceniem.
+            // Fallback when the advisory notice has no working close handler.
             notice.remove();
             exposeEnterGameButton();
             return;
@@ -1087,20 +1494,19 @@
     }
 
     function refresh() {
-        obs.disconnect();
+        mutationObserver.disconnect();
         let rerun = false;
         try {
             closeEmailNotice();
-            // Motyw klasyczny może pozostawiać w DOM ukryte kafelki .charc
-            // (np. utworzone przez inny dodatek). Wykrycie natywnej listy ma
-            // pierwszeństwo, żeby klasyczny panel nie został pomylony z nowym.
+            // The classic theme can leave modern tiles in the DOM.
+            // Prefer its native character select when detecting the page layout.
             if (findLegacySelect()) runLegacy();
             else rerun = run();
         } catch (e) { console.error('[Margonem układ postaci]', e); }
-        obs.observe(document.body, { childList: true, subtree: true });
+        mutationObserver.observe(document.body, { childList: true, subtree: true });
         if (rerun) setTimeout(refresh, 120);
     }
 
-    obs.observe(document.body, { childList: true, subtree: true });
+    mutationObserver.observe(document.body, { childList: true, subtree: true });
     refresh();
 })();
