@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.22
+// @version      1.23
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -50,7 +50,7 @@
     pinStyle.textContent = `
         .mdr-login-actions{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;width:100%;box-sizing:border-box;}
         .mdr-login-actions>.enter-game,.mdr-login-actions>.mdr-login-as{margin:0!important;}
-        .mdr-quick-login{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:center;align-content:center;gap:6px;margin:auto;padding:6px 3px 3px;max-width:390px;width:100%;box-sizing:border-box;}
+        .mdr-quick-login{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:center;align-content:center;gap:6px;margin:16px auto 0;padding:0 3px;position:relative;transform:translateY(var(--mdr-quick-offset,0px));max-width:390px;width:100%;box-sizing:border-box;}
         .mdr-quick-login[hidden]{display:none!important}
         .mdr-quick-character{display:flex;align-items:center;gap:5px;width:100%;min-width:0;height:34px;min-height:34px;padding:2px 5px;border:1px solid rgba(235,215,170,.45);border-radius:5px;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-sizing:border-box;}
         .mdr-quick-character:hover,.mdr-quick-character:focus-visible{border-color:#ffe08a;box-shadow:0 0 0 1px rgba(255,224,138,.5);outline:none;}
@@ -59,8 +59,10 @@
         .mdr-quick-label{display:flex;flex-direction:column;min-width:0;line-height:1.2;}
         .mdr-quick-label strong,.mdr-quick-label small{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .mdr-quick-label strong{font-size:11px;}.mdr-quick-label small{font-size:9px;opacity:.8;}
-        .mdr-deputy-time{position:static!important;display:block!important;width:100%;max-width:100%!important;margin:0!important;text-align:center!important;font-size:13px!important;line-height:1.25!important;white-space:normal!important;box-sizing:border-box;}
-        .mdr-login-panel-host{display:flex!important;flex:1 1 auto!important;flex-direction:column!important;height:100%!important;min-height:100%;box-sizing:border-box;}
+        .mdr-deputy-time{position:static!important;display:block!important;width:100%;max-width:100%!important;margin:0!important;text-align:left!important;font-size:13px!important;line-height:1.25!important;white-space:normal!important;box-sizing:border-box;}
+        .mdr-time-label{ text-align:left!important; }
+        .mdr-time-label .substitution-time{position:static!important;inset:auto!important;transform:none!important;margin:0!important;text-align:left!important;display:block!important;}
+        .mdr-time-label .substitution-time strong{position:static!important;display:inline!important;margin:0!important;}
         .mdr-deputy-time-slot{display:block;flex:0 0 auto;width:100%;}
         @media(max-width:520px){.mdr-login-actions{gap:7px}.mdr-quick-login{gap:5px}.mdr-quick-character{gap:3px;padding-inline:3px}.mdr-pin-portrait-wrap,.mdr-pin-portrait{width:26px}.mdr-pin-portrait-wrap{flex-basis:26px}.mdr-quick-label strong{font-size:10px}.mdr-quick-label small{font-size:8px}}
     `;
@@ -718,7 +720,7 @@
 
         // Separator „LUB” niepotrzebnie zajmuje pionowe miejsce po przeniesieniu
         // przycisku logowania zastępcy do wspólnego rzędu z wejściem do gry.
-        const loginRoot = enter.closest('.login-box, .login-container, [class*="login"]') || document;
+        const loginRoot = enter.closest('#js-login-box') || enter.closest('.box-enter') || enter.parentElement;
         [...loginRoot.querySelectorAll('*')].forEach((element) => {
             if (element.dataset.mdrHiddenAlternative === '1') return;
             if ((element.textContent || '').trim().toLocaleLowerCase('pl') !== 'lub') return;
@@ -743,45 +745,77 @@
         }
     }
 
-    function arrangeDeputyTime(panel, enter) {
-        if (!panel.parentElement) return;
-        const message = [...document.querySelectorAll('*')]
-            .filter((element) => {
-                const text = (element.textContent || '').replace(/\s+/g, ' ').trim();
-                return text.length < 180 && /pozostały czas gry zastępcy/i.test(text);
-            })
-            .sort((a, b) => a.textContent.length - b.textContent.length)[0];
-        let slot = document.querySelector('.mdr-deputy-time-slot');
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-        let labelNode = null;
-        while (walker.nextNode()) {
-            if (/wybierz\s+postać\s*:/i.test(walker.currentNode.nodeValue || '')) {
-                labelNode = walker.currentNode;
-                break;
-            }
+    function arrangeDeputyTime() {
+        const login = document.querySelector('#js-login-box');
+        if (!login) return;
+        const label = login.querySelector(':scope > .info-container > .label');
+        if (!label) return;
+        const timer = login.querySelector(':scope > .substitution-time') ||
+            label.querySelector('.substitution-time');
+        if (!timer) {
+            if (/wybierz\s+postać/i.test(label.textContent)) label.hidden = true;
+            return;
         }
-        if (labelNode) {
-            const text = labelNode.nodeValue || '';
-            const match = /wybierz\s+postać\s*:/i.exec(text);
-            const before = text.slice(0, match.index).trimEnd();
-            const after = text.slice(match.index + match[0].length).trimStart();
-            slot = document.createElement('span');
-            slot.className = 'mdr-deputy-time-slot';
-            if (before) {
-                labelNode.nodeValue = before;
-                labelNode.parentElement?.insertBefore(slot, labelNode.nextSibling);
-            } else {
-                labelNode.parentElement?.insertBefore(slot, labelNode);
-                labelNode.remove();
-            }
-            if (after) slot.after(document.createTextNode(` ${after}`));
+
+        // Move the original live timer, including its numeric countdown.
+        // Earlier versions left the prefix inside a separate label slot.
+        if (!/pozostały czas gry zastępcy/i.test(timer.textContent)) {
+            const prefix = label.querySelector('.mdr-deputy-time-slot > span');
+            if (prefix) timer.prepend(prefix, document.createTextNode(' '));
+            else timer.prepend(document.createTextNode('Pozostały czas gry Zastępcy: '));
         }
-        if (message && message !== panel) {
-            message.classList.add('mdr-deputy-time');
-            if (slot) slot.replaceChildren(message);
-            else if (!message.closest('.mdr-deputy-time-slot')) panel.parentElement.insertBefore(message, panel);
-        }
+        timer.querySelectorAll('.mdr-deputy-time').forEach((part) => {
+            part.classList.remove('mdr-deputy-time');
+        });
+        if (timer.parentElement !== label) label.replaceChildren(timer);
+        label.classList.remove('mdr-deputy-time');
+        label.classList.add('mdr-time-label');
+        label.hidden = false;
+        timer.classList.add('mdr-deputy-time');
+        label.parentElement.hidden = false;
     }
+
+    let quickLayoutFrame = 0;
+    const quickLayoutObserver = new ResizeObserver(scheduleQuickLayout);
+    let quickLayoutElements = [];
+
+    function scheduleQuickLayout() {
+        if (quickLayoutFrame) return;
+        quickLayoutFrame = requestAnimationFrame(() => {
+            quickLayoutFrame = 0;
+            const panel = document.querySelector('#js-login-box .mdr-quick-login');
+            const card = panel?.closest('.header-box--logged');
+            const actions = card?.querySelector('.mdr-login-actions');
+            if (!panel || panel.hidden || !card || !actions) return;
+            const panelRect = panel.getBoundingClientRect();
+            const cardRect = card.getBoundingClientRect();
+            const actionsRect = actions.getBoundingClientRect();
+            if (!card.offsetHeight || !panelRect.height) return;
+            const scale = cardRect.height / card.offsetHeight;
+            const previousOffset = panel._mdrQuickOffset || 0;
+            const naturalTop = panelRect.top - previousOffset * scale;
+            const centeredTop = (actionsRect.bottom + cardRect.bottom - panelRect.height) / 2;
+            // Keep a readable gap when a theme leaves too little free space.
+            const desiredTop = Math.max(actionsRect.bottom + 16 * scale, centeredTop);
+            const offset = Math.max(0, (desiredTop - naturalTop) / scale);
+            if (Math.abs(offset - previousOffset) > 0.25) {
+                panel._mdrQuickOffset = offset;
+                panel.style.setProperty('--mdr-quick-offset', `${offset}px`);
+            }
+        });
+    }
+
+    function observeQuickLayout(panel, enter) {
+        const elements = [panel, enter.closest('.mdr-login-actions'),
+            panel.closest('.header-box--logged')].filter(Boolean);
+        if (elements.some((element, index) => element !== quickLayoutElements[index])) {
+            quickLayoutObserver.disconnect();
+            elements.forEach((element) => quickLayoutObserver.observe(element));
+            quickLayoutElements = elements;
+        }
+        scheduleQuickLayout();
+    }
+    window.addEventListener('resize', scheduleQuickLayout);
 
     function renderPinnedCharacters(tiles) {
         if (!activeRoster) return;
@@ -795,9 +829,9 @@
         let panel = document.querySelector('.mdr-quick-login');
         if (!panel) { panel = document.createElement('div'); panel.className = 'mdr-quick-login'; }
         const parent = enter.closest('.info-container') || enter.parentElement;
-        if (panel.parentElement !== parent) parent.insertAdjacentElement('afterend', panel);
-        panel.parentElement?.classList.add('mdr-login-panel-host');
-        arrangeDeputyTime(panel, enter);
+        if (parent.nextElementSibling !== panel) parent.insertAdjacentElement('afterend', panel);
+        panel.parentElement?.classList.remove('mdr-login-panel-host');
+        observeQuickLayout(panel, enter);
         const signature = pinnedCharacters.map((id) => {
             const tile = tileById.get(id); return `${id}:${characterName(tile)}:${worldOf(tile)}`;
         }).join('|');
@@ -891,6 +925,7 @@
 
     // ---------- główna logika ----------
     function run() {
+        arrangeDeputyTime();
         const tiles = [...document.querySelectorAll(TILE)];
         if (!tiles.length) return false;
         bindRoster(tiles);
