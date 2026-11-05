@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.21
+// @version      1.22
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -60,7 +60,8 @@
         .mdr-quick-label strong,.mdr-quick-label small{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
         .mdr-quick-label strong{font-size:11px;}.mdr-quick-label small{font-size:9px;opacity:.8;}
         .mdr-deputy-time{position:static!important;display:block!important;width:100%;max-width:100%!important;margin:0!important;text-align:center!important;font-size:13px!important;line-height:1.25!important;white-space:normal!important;box-sizing:border-box;}
-        .mdr-login-panel-host{display:flex!important;flex-direction:column!important;}
+        .mdr-login-panel-host{display:flex!important;flex:1 1 auto!important;flex-direction:column!important;height:100%!important;min-height:100%;box-sizing:border-box;}
+        .mdr-deputy-time-slot{display:block;flex:0 0 auto;width:100%;}
         @media(max-width:520px){.mdr-login-actions{gap:7px}.mdr-quick-login{gap:5px}.mdr-quick-character{gap:3px;padding-inline:3px}.mdr-pin-portrait-wrap,.mdr-pin-portrait{width:26px}.mdr-pin-portrait-wrap{flex-basis:26px}.mdr-quick-label strong{font-size:10px}.mdr-quick-label small{font-size:8px}}
     `;
     document.head.appendChild(pinStyle);
@@ -744,26 +745,41 @@
 
     function arrangeDeputyTime(panel, enter) {
         if (!panel.parentElement) return;
-        const root = enter.closest('.login-box, .login-container, [class*="login"]') || enter.closest('.info-container')?.parentElement || document;
-        const message = [...root.querySelectorAll('*')]
+        const message = [...document.querySelectorAll('*')]
             .filter((element) => {
                 const text = (element.textContent || '').replace(/\s+/g, ' ').trim();
                 return text.length < 180 && /pozostały czas gry zastępcy/i.test(text);
             })
             .sort((a, b) => a.textContent.length - b.textContent.length)[0];
-        const chooseLabel = [...root.querySelectorAll('*')]
-            .filter((element) => (element.textContent || '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pl') === 'wybierz postać:')
-            .sort((a, b) => a.children.length - b.children.length)[0];
-        if (chooseLabel) {
-            chooseLabel.hidden = true;
-            chooseLabel.dataset.mdrChooseLabelHidden = '1';
+        let slot = document.querySelector('.mdr-deputy-time-slot');
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let labelNode = null;
+        while (walker.nextNode()) {
+            if (/wybierz\s+postać\s*:/i.test(walker.currentNode.nodeValue || '')) {
+                labelNode = walker.currentNode;
+                break;
+            }
         }
-        if (!message || message === panel) return;
-        message.classList.add('mdr-deputy-time');
-        if (chooseLabel?.parentElement && message.parentElement !== chooseLabel.parentElement) {
-            chooseLabel.after(message);
-        } else if (chooseLabel?.parentElement && chooseLabel.nextElementSibling !== message) {
-            chooseLabel.after(message);
+        if (labelNode) {
+            const text = labelNode.nodeValue || '';
+            const match = /wybierz\s+postać\s*:/i.exec(text);
+            const before = text.slice(0, match.index).trimEnd();
+            const after = text.slice(match.index + match[0].length).trimStart();
+            slot = document.createElement('span');
+            slot.className = 'mdr-deputy-time-slot';
+            if (before) {
+                labelNode.nodeValue = before;
+                labelNode.parentElement?.insertBefore(slot, labelNode.nextSibling);
+            } else {
+                labelNode.parentElement?.insertBefore(slot, labelNode);
+                labelNode.remove();
+            }
+            if (after) slot.after(document.createTextNode(` ${after}`));
+        }
+        if (message && message !== panel) {
+            message.classList.add('mdr-deputy-time');
+            if (slot) slot.replaceChildren(message);
+            else if (!message.closest('.mdr-deputy-time-slot')) panel.parentElement.insertBefore(message, panel);
         }
     }
 
