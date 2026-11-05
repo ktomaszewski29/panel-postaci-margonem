@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Margonem – panel zmiany postaci
 // @namespace    margonem.postacie.layout
-// @version      1.19
+// @version      1.20
 // @description  Usprawnia wybór postaci na nowej i klasycznej stronie głównej Margonem
 // @updateURL    https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
 // @downloadURL  https://raw.githubusercontent.com/ktomaszewski29/panel-postaci-margonem/main/panel-zmiany-postaci.user.js
@@ -50,16 +50,17 @@
     pinStyle.textContent = `
         .mdr-login-actions{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;width:100%;box-sizing:border-box;}
         .mdr-login-actions>.enter-game,.mdr-login-actions>.mdr-login-as{margin:0!important;}
-        .mdr-quick-login{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:center;gap:7px;margin:8px auto 0;padding:3px 3px 7px;max-width:390px;width:100%;box-sizing:border-box;}
+        .mdr-quick-login{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));justify-content:center;gap:4px;margin:5px auto 0;padding:2px 3px 3px;max-width:390px;width:100%;box-sizing:border-box;}
         .mdr-quick-login[hidden]{display:none!important}
-        .mdr-quick-character{display:flex;align-items:center;gap:6px;width:100%;min-width:0;height:48px;min-height:48px;padding:3px 6px;border:1px solid rgba(235,215,170,.45);border-radius:5px;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-sizing:border-box;}
+        .mdr-quick-character{display:flex;align-items:center;gap:4px;width:100%;min-width:0;height:34px;min-height:34px;padding:2px 5px;border:1px solid rgba(235,215,170,.45);border-radius:5px;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s;box-sizing:border-box;}
         .mdr-quick-character:hover,.mdr-quick-character:focus-visible{border-color:#ffe08a;box-shadow:0 0 0 1px rgba(255,224,138,.5);outline:none;}
-        .mdr-pin-portrait-wrap{display:flex;align-items:flex-start;justify-content:center;flex:0 0 28px;width:28px;height:28px;overflow:hidden;}
-        .mdr-pin-portrait{display:block;width:28px;height:56px;object-fit:cover;object-position:top center;}
+        .mdr-pin-portrait-wrap{display:flex;align-items:flex-start;justify-content:center;flex:0 0 22px;width:22px;height:26px;overflow:hidden;}
+        .mdr-pin-portrait{display:block;width:22px;height:44px;object-fit:cover;object-position:top center;}
         .mdr-quick-label{display:flex;flex-direction:column;min-width:0;line-height:1.2;}
         .mdr-quick-label strong,.mdr-quick-label small{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-        .mdr-quick-label strong{font-size:13px;}.mdr-quick-label small{font-size:11px;opacity:.8;}
-        @media(max-width:520px){.mdr-login-actions{gap:7px}.mdr-quick-login{gap:5px}.mdr-quick-character{gap:4px;padding-inline:4px}.mdr-pin-portrait-wrap,.mdr-pin-portrait{width:24px}.mdr-pin-portrait-wrap{flex-basis:24px}.mdr-quick-label strong{font-size:11px}.mdr-quick-label small{font-size:10px}}
+        .mdr-quick-label strong{font-size:11px;}.mdr-quick-label small{font-size:9px;opacity:.8;}
+        .mdr-deputy-time{position:static!important;display:block!important;width:100%;max-width:390px;margin:4px auto 0!important;text-align:center!important;font-size:11px!important;line-height:1.2!important;white-space:normal!important;}
+        @media(max-width:520px){.mdr-login-actions{gap:7px}.mdr-quick-login{gap:3px}.mdr-quick-character{gap:3px;padding-inline:3px}.mdr-pin-portrait-wrap,.mdr-pin-portrait{width:19px}.mdr-pin-portrait-wrap{flex-basis:19px}.mdr-quick-label strong{font-size:10px}.mdr-quick-label small{font-size:8px}}
     `;
     document.head.appendChild(pinStyle);
     let dragged = null;
@@ -740,6 +741,20 @@
         }
     }
 
+    function arrangeDeputyTime(panel, enter) {
+        if (!panel.parentElement) return;
+        const root = enter.closest('.info-container')?.parentElement || document;
+        const message = [...root.querySelectorAll('*')]
+            .filter((element) => {
+                const text = (element.textContent || '').replace(/\s+/g, ' ').trim();
+                return text.length < 180 && /pozostały czas gry zastępcy/i.test(text);
+            })
+            .sort((a, b) => a.textContent.length - b.textContent.length)[0];
+        if (!message || message === panel) return;
+        message.classList.add('mdr-deputy-time');
+        if (message.nextElementSibling !== panel) panel.parentElement.insertBefore(message, panel);
+    }
+
     function renderPinnedCharacters(tiles) {
         if (!activeRoster) return;
         const enter = document.querySelector('.info-container .enter-game');
@@ -753,6 +768,7 @@
         if (!panel) { panel = document.createElement('div'); panel.className = 'mdr-quick-login'; }
         const parent = enter.closest('.info-container') || enter.parentElement;
         if (panel.parentElement !== parent) parent.insertAdjacentElement('afterend', panel);
+        arrangeDeputyTime(panel, enter);
         const signature = pinnedCharacters.map((id) => {
             const tile = tileById.get(id); return `${id}:${characterName(tile)}:${worldOf(tile)}`;
         }).join('|');
